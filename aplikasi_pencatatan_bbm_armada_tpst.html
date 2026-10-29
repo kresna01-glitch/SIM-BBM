@@ -1,0 +1,2529 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sistem Manajemen & Realisasi BBM Armada / TPST</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- SheetJS for Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <!-- Inter Font -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                    colors: {
+                        brand: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0284c7',
+                            700: '#0369a1',
+                            800: '#075985',
+                            900: '#0c4a6e',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .custom-scrollbar::-webkit-scrollbar {
+            height: 6px;
+            width: 6px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+
+        /* Styling khusus untuk cetak nota/surat */
+        @media print {
+            body * {
+                visibility: hidden;
+            }
+            #printArea, #printArea * {
+                visibility: visible;
+            }
+            #printArea {
+                position: absolute;
+                left: 0;
+                top: 0;
+                width: 100%;
+                background: white;
+                color: black;
+                padding: 0;
+                margin: 0;
+            }
+            .page-break {
+                page-break-before: always;
+            }
+        }
+    </style>
+
+    <!-- Global Application Script -->
+    <script>
+        // Default Data
+        const DEFAULT_BBM_PRICES = [
+            { id: 'bio_solar', name: 'Bio Solar', price: 6800, color: '#0284c7' },
+            { id: 'dex_rutin', name: 'Pertamina Dex', price: 13600, color: '#10b981' },
+            { id: 'dex_tpst', name: 'Pertamina Dex TPST', price: 13600, color: '#f59e0b' },
+            { id: 'pertamax', name: 'Pertamax', price: 12950, color: '#6366f1' }
+        ];
+
+        const DEFAULT_ARMADA = [
+            { id: 1, name: 'AB 8112 DE', driver: 'Paryoto', bbmId: 'bio_solar' },
+            { id: 2, name: 'AB 8004 CE', driver: 'Iwan Slamet', bbmId: 'bio_solar' },
+            { id: 3, name: 'AB 8115 DE', driver: 'Agus P.', bbmId: 'bio_solar' },
+            { id: 4, name: 'TPST Tamanmartani', driver: 'Operator Alat Berat', bbmId: 'dex_tpst' },
+            { id: 5, name: 'TPST Sendangsari', driver: 'Operator Genset/Alat', bbmId: 'dex_tpst' },
+            { id: 6, name: 'TPST Donokerto', driver: 'Operator Alat', bbmId: 'dex_tpst' },
+            { id: 7, name: 'TD Tambakboyo', driver: 'Tim Lapangan', bbmId: 'dex_rutin' }
+        ];
+
+        const DEFAULT_SIGNATURES = [
+            { id: 'sig1', title: 'Kepala Dinas / Penanggung Jawab', name: 'Drs. H. M. Sutrisno, M.Si', nip: '19750812 199903 1 002', location: 'Sleman' },
+            { id: 'sig2', title: 'Kepala Bidang / Pejabat Pembuat Komitmen', name: 'Bambang Triyono, S.T., M.Eng', nip: '19810415 200501 1 008', location: 'Sleman' },
+            { id: 'sig3', title: 'Pengawas / Pengelola TPST & Armada', name: 'Rahmat Hidayat, A.Md', nip: '19880220 201012 1 003', location: 'Sleman' }
+        ];
+
+        const DEFAULT_TRANSACTIONS = [
+            { id: 'tx1', date: '2026-08-01', armadaId: 1, bbmId: 'bio_solar', liters: 40, price: 6800, total: 272000, ket: 'Rutin' },
+            { id: 'tx2', date: '2026-08-01', armadaId: 4, bbmId: 'dex_tpst', liters: 100, price: 13600, total: 1360000, ket: 'Alat Berat' },
+            { id: 'tx3', date: '2026-08-03', armadaId: 2, bbmId: 'bio_solar', liters: 35, price: 6800, total: 238000, ket: 'Rutin' },
+            { id: 'tx4', date: '2026-08-05', armadaId: 3, bbmId: 'bio_solar', liters: 45, price: 6800, total: 306000, ket: 'Rutin' },
+            { id: 'tx5', date: '2026-08-08', armadaId: 1, bbmId: 'bio_solar', liters: 40, price: 6800, total: 272000, ket: 'Rutin' },
+            { id: 'tx6', date: '2026-08-10', armadaId: 5, bbmId: 'dex_tpst', liters: 80, price: 13600, total: 1088000, ket: 'Alat Berat' },
+            { id: 'tx7', date: '2026-08-12', armadaId: 7, bbmId: 'dex_rutin', liters: 50, price: 13600, total: 680000, ket: 'Rutin' },
+            { id: 'tx8', date: '2026-08-15', armadaId: 2, bbmId: 'bio_solar', liters: 40, price: 6800, total: 272000, ket: 'Rutin' },
+            { id: 'tx9', date: '2026-08-18', armadaId: 4, bbmId: 'dex_tpst', liters: 120, price: 13600, total: 1632000, ket: 'Alat Berat' },
+            { id: 'tx10', date: '2026-08-20', armadaId: 6, bbmId: 'dex_tpst', liters: 60, price: 13600, total: 816000, ket: 'Alat Berat' },
+            { id: 'tx11', date: '2026-08-22', armadaId: 1, bbmId: 'bio_solar', liters: 45, price: 6800, total: 306000, ket: 'Rutin' },
+            { id: 'tx12', date: '2026-08-25', armadaId: 3, bbmId: 'bio_solar', liters: 40, price: 6800, total: 272000, ket: 'Rutin' },
+            { id: 'tx13', date: '2026-08-28', armadaId: 4, bbmId: 'dex_tpst', liters: 90, price: 13600, total: 1224000, ket: 'Alat Berat' },
+            { id: 'tx14', date: '2026-08-30', armadaId: 7, bbmId: 'dex_rutin', liters: 45, price: 13600, total: 612000, ket: 'Insidentil' }
+        ];
+
+        // State Variables
+        let bbmPrices = [];
+        let armadaList = [];
+        let transactions = [];
+        let insidentilList = [];
+        let signatureList = [];
+        let trendChartInstance = null;
+        let pieChartInstance = null;
+        let multiRowCount = 0;
+
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            const targetTab = document.getElementById(`tab-${tabId}`);
+            if (targetTab) targetTab.classList.remove('hidden');
+
+            document.querySelectorAll('.nav-item').forEach(btn => {
+                btn.classList.remove('bg-sky-600', 'text-white', 'shadow-lg', 'shadow-sky-600/30');
+                btn.classList.add('hover:bg-slate-800', 'hover:text-white', 'text-slate-400');
+            });
+
+            const activeBtn = document.getElementById(`nav-${tabId}`);
+            if (activeBtn) {
+                activeBtn.classList.add('bg-sky-600', 'text-white', 'shadow-lg', 'shadow-sky-600/30');
+                activeBtn.classList.remove('hover:bg-slate-800', 'hover:text-white', 'text-slate-400');
+            }
+
+            if (tabId === 'dashboard') renderDashboard();
+            else if (tabId === 'matriks') renderMatriksTable();
+            else if (tabId === 'rekap') renderRekapTable();
+            else if (tabId === 'master') renderMasterSection();
+            else if (tabId === 'insidentil') renderInsidentilTab();
+        }
+
+        function loadLocalStorageData() {
+            const storedPrices = localStorage.getItem('sim_bbm_prices');
+            const storedArmada = localStorage.getItem('sim_bbm_armada');
+            const storedTx = localStorage.getItem('sim_bbm_transactions');
+            const storedIns = localStorage.getItem('sim_bbm_insidentil');
+            const storedSigs = localStorage.getItem('sim_bbm_signatures');
+
+            bbmPrices = storedPrices ? JSON.parse(storedPrices) : DEFAULT_BBM_PRICES;
+            armadaList = storedArmada ? JSON.parse(storedArmada) : DEFAULT_ARMADA;
+            transactions = storedTx ? JSON.parse(storedTx) : DEFAULT_TRANSACTIONS;
+            insidentilList = storedIns ? JSON.parse(storedIns) : [];
+            signatureList = storedSigs ? JSON.parse(storedSigs) : DEFAULT_SIGNATURES;
+
+            saveLocalStorageData();
+        }
+
+        function saveLocalStorageData() {
+            localStorage.setItem('sim_bbm_prices', JSON.stringify(bbmPrices));
+            localStorage.setItem('sim_bbm_armada', JSON.stringify(armadaList));
+            localStorage.setItem('sim_bbm_transactions', JSON.stringify(transactions));
+            localStorage.setItem('sim_bbm_insidentil', JSON.stringify(insidentilList));
+            localStorage.setItem('sim_bbm_signatures', JSON.stringify(signatureList));
+        }
+
+        function resetDataToDefault() {
+            if (confirm('Apakah Anda yakin ingin mengembalikan data ke kondisi awal (demo)? Transaksi baru akan terhapus.')) {
+                bbmPrices = DEFAULT_BBM_PRICES;
+                armadaList = DEFAULT_ARMADA;
+                transactions = DEFAULT_TRANSACTIONS;
+                insidentilList = [];
+                signatureList = DEFAULT_SIGNATURES;
+                saveLocalStorageData();
+                initUI();
+                renderDashboard();
+                showToast('Data berhasil di-reset!');
+            }
+        }
+
+        function initUI() {
+            renderArmadaDropdownOptions(armadaList);
+
+            const bbmSelect = document.getElementById('inputJenisBBM');
+            const insBbmSelect = document.getElementById('insBbmSelect');
+            if (bbmSelect) {
+                bbmSelect.innerHTML = bbmPrices.map(b => `<option value="${b.id}">${b.name} - Rp ${b.price.toLocaleString('id-ID')}</option>`).join('');
+            }
+            if (insBbmSelect) {
+                insBbmSelect.innerHTML = bbmPrices.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+            }
+
+            const inTanggal = document.getElementById('inputTanggal');
+            const multiTanggal = document.getElementById('multiInputTanggal');
+            const insTanggal = document.getElementById('insTanggal');
+
+            const todayStr = new Date().toISOString().split('T')[0];
+            if (inTanggal) inTanggal.value = todayStr;
+            if (multiTanggal) multiTanggal.value = todayStr;
+            if (insTanggal) insTanggal.value = todayStr;
+
+            if (armadaList.length > 0) {
+                selectArmadaOption(armadaList[0].id);
+            }
+
+            // Populate Insidentil Armada Select
+            const insArmadaSelect = document.getElementById('insArmadaSelect');
+            if (insArmadaSelect) {
+                insArmadaSelect.innerHTML = `<option value="">-- Pilih Armada / Lokasi --</option>` + 
+                    armadaList.map(a => `<option value="${a.id}">${a.name} - ${a.driver}</option>`).join('');
+            }
+
+            autoFillPrice();
+            renderMasterSection();
+            renderRecentTransactions();
+            initMultiInputForm();
+            renderInsidentilTab();
+        }
+
+        function renderArmadaDropdownOptions(list) {
+            const container = document.getElementById('armadaOptionsList');
+            if (!container) return;
+            if (list.length === 0) {
+                container.innerHTML = `<div class="p-2 text-xs text-slate-400 text-center">Tidak ditemukan</div>`;
+                return;
+            }
+            container.innerHTML = list.map(a => `
+                <div onclick="selectArmadaOption(${a.id})" class="p-2 hover:bg-sky-50 rounded-lg cursor-pointer transition flex justify-between items-center text-xs">
+                    <span class="font-bold text-slate-800">${a.name}</span>
+                    <span class="text-slate-500">${a.driver}</span>
+                </div>
+            `).join('');
+        }
+
+        function toggleArmadaDropdown() {
+            const menu = document.getElementById('armadaDropdownMenu');
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+            if (!menu.classList.contains('hidden')) {
+                const searchInput = document.getElementById('armadaSearchInput');
+                if (searchInput) {
+                    searchInput.value = '';
+                    renderArmadaDropdownOptions(armadaList);
+                    searchInput.focus();
+                }
+            }
+        }
+
+        function filterArmadaOptions() {
+            const searchInput = document.getElementById('armadaSearchInput');
+            if (!searchInput) return;
+            const query = searchInput.value.toLowerCase();
+            const filtered = armadaList.filter(a => 
+                a.name.toLowerCase().includes(query) || 
+                a.driver.toLowerCase().includes(query)
+            );
+            renderArmadaDropdownOptions(filtered);
+        }
+
+        function selectArmadaOption(id) {
+            const armada = armadaList.find(a => a.id === id);
+            if (armada) {
+                const inArmada = document.getElementById('inputArmada');
+                const lblArmada = document.getElementById('selectedArmadaLabel');
+                const menu = document.getElementById('armadaDropdownMenu');
+                
+                if (inArmada) inArmada.value = armada.id;
+                if (lblArmada) lblArmada.innerHTML = `<strong class="text-slate-800">${armada.name}</strong> <span class="text-slate-500">(${armada.driver})</span>`;
+                
+                autoFillDriver();
+                if (menu) menu.classList.add('hidden');
+            }
+        }
+
+        function autofillInsidentilArmada() {
+            const select = document.getElementById('insArmadaSelect');
+            const armadaId = parseInt(select.value);
+            const armada = armadaList.find(a => a.id === armadaId);
+            if (armada) {
+                document.getElementById('insDriver').value = armada.driver;
+                if (armada.bbmId) {
+                    document.getElementById('insBbmSelect').value = armada.bbmId;
+                }
+            }
+        }
+
+        function switchInputMode(mode) {
+            const singleBtn = document.getElementById('btnModeSingle');
+            const multiBtn = document.getElementById('btnModeMulti');
+            const singleContainer = document.getElementById('singleInputContainer');
+            const multiContainer = document.getElementById('multiInputContainer');
+
+            if (mode === 'single') {
+                if (singleBtn) singleBtn.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition bg-white text-sky-600 shadow-sm";
+                if (multiBtn) multiBtn.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+                if (singleContainer) singleContainer.classList.remove('hidden');
+                if (multiContainer) multiContainer.classList.add('hidden');
+            } else {
+                if (multiBtn) multiBtn.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition bg-white text-sky-600 shadow-sm";
+                if (singleBtn) singleBtn.className = "flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900";
+                if (multiContainer) multiContainer.classList.remove('hidden');
+                if (singleContainer) singleContainer.classList.add('hidden');
+            }
+        }
+
+        function initMultiInputForm() {
+            const tbody = document.getElementById('multiInputRows');
+            if (!tbody) return;
+            tbody.innerHTML = '';
+            multiRowCount = 0;
+            addMultiInputRow();
+            addMultiInputRow();
+            addMultiInputRow();
+        }
+
+        function addMultiInputRow() {
+            multiRowCount++;
+            const tbody = document.getElementById('multiInputRows');
+            if (!tbody) return;
+            const rowId = `multi_row_${multiRowCount}`;
+
+            const armadaOptions = armadaList.map(a => `<option value="${a.id}">${a.name} (${a.driver})</option>`).join('');
+            const bbmOptions = bbmPrices.map(b => `<option value="${b.id}">${b.name}</option>`).join('');
+
+            const tr = document.createElement('tr');
+            tr.id = rowId;
+            tr.className = "hover:bg-slate-50 transition border-b border-slate-100";
+            tr.innerHTML = `
+                <td class="p-3 font-semibold text-xs text-slate-400 row-num text-center"></td>
+                <td class="p-2">
+                    <select class="multi-armada w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-sky-500" onchange="autoSelectMultiBbm(this)">
+                        ${armadaOptions}
+                    </select>
+                </td>
+                <td class="p-2">
+                    <select class="multi-bbm w-full p-2 border border-slate-300 rounded-lg text-xs font-medium focus:ring-2 focus:ring-sky-500">
+                        ${bbmOptions}
+                    </select>
+                </td>
+                <td class="p-2">
+                    <input type="number" step="0.01" min="0" placeholder="0.0" class="multi-liter w-full p-2 border border-slate-300 rounded-lg text-xs font-bold text-sky-600 focus:ring-2 focus:ring-sky-500">
+                </td>
+                <td class="p-2">
+                    <select class="multi-ket w-full p-2 border border-slate-300 rounded-lg text-xs">
+                        <option value="Rutin">Rutin</option>
+                        <option value="Alat Berat">Alat Berat</option>
+                        <option value="Insidentil">Insidentil</option>
+                        <option value="Barcode Terblokir">Barcode Terblokir</option>
+                    </select>
+                </td>
+                <td class="p-2 text-center">
+                    <button type="button" onclick="removeMultiInputRow('${rowId}')" class="text-rose-500 hover:text-rose-700 p-1.5 rounded-lg hover:bg-rose-50 text-xs">
+                        <i class="fa-solid fa-trash-can"></i>
+                    </button>
+                </td>
+            `;
+
+            tbody.appendChild(tr);
+            updateMultiRowNumbers();
+
+            const selectArmada = tr.querySelector('.multi-armada');
+            autoSelectMultiBbm(selectArmada);
+        }
+
+        function removeMultiInputRow(rowId) {
+            const row = document.getElementById(rowId);
+            if (row) {
+                row.remove();
+                updateMultiRowNumbers();
+            }
+        }
+
+        function updateMultiRowNumbers() {
+            const rows = document.querySelectorAll('#multiInputRows tr');
+            rows.forEach((r, idx) => {
+                const cell = r.querySelector('.row-num');
+                if (cell) cell.innerText = idx + 1;
+            });
+        }
+
+        function autoSelectMultiBbm(armadaSelectElem) {
+            if (!armadaSelectElem) return;
+            const armadaId = parseInt(armadaSelectElem.value);
+            const armada = armadaList.find(a => a.id === armadaId);
+            if (armada && armada.bbmId) {
+                const row = armadaSelectElem.closest('tr');
+                const bbmSelect = row ? row.querySelector('.multi-bbm') : null;
+                if (bbmSelect) bbmSelect.value = armada.bbmId;
+            }
+        }
+
+        function saveMultiTransactions() {
+            const dateInput = document.getElementById('multiInputTanggal');
+            if (!dateInput || !dateInput.value) {
+                alert('Pilih tanggal transaksi terlebih dahulu');
+                return;
+            }
+            const date = dateInput.value;
+            const rows = document.querySelectorAll('#multiInputRows tr');
+            let savedCount = 0;
+
+            rows.forEach(r => {
+                const armadaId = parseInt(r.querySelector('.multi-armada').value);
+                const bbmId = r.querySelector('.multi-bbm').value;
+                const liters = parseFloat(r.querySelector('.multi-liter').value);
+                const ket = r.querySelector('.multi-ket').value;
+
+                if (liters && liters > 0) {
+                    const bbm = bbmPrices.find(b => b.id === bbmId);
+                    const price = bbm ? bbm.price : 0;
+
+                    transactions.push({
+                        id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                        date,
+                        armadaId,
+                        bbmId,
+                        liters,
+                        price,
+                        total: liters * price,
+                        ket
+                    });
+                    savedCount++;
+                }
+            });
+
+            if (savedCount > 0) {
+                saveLocalStorageData();
+                showToast(`${savedCount} Transaksi batch berhasil disimpan!`);
+                initMultiInputForm();
+                renderRecentTransactions();
+            } else {
+                alert('Isi minimal satu baris dengan jumlah liter > 0');
+            }
+        }
+
+        function renderRecentTransactions() {
+            const container = document.getElementById('recentTransactionsList');
+            if (!container) return;
+
+            const sortedTx = [...transactions].sort((a, b) => new Date(b.date) - new Date(a.date)).slice(0, 8);
+
+            if (sortedTx.length === 0) {
+                container.innerHTML = `<div class="p-4 text-center text-xs text-slate-400">Belum ada transaksi dicatat</div>`;
+                return;
+            }
+
+            container.innerHTML = sortedTx.map(t => {
+                const armada = armadaList.find(a => a.id === t.armadaId) || { name: 'Unknown', driver: '-' };
+                const bbm = bbmPrices.find(b => b.id === t.bbmId) || { name: t.bbmId };
+                return `
+                    <div class="p-3 bg-slate-50 hover:bg-slate-100 rounded-xl border border-slate-200 transition flex justify-between items-center text-xs">
+                        <div class="space-y-0.5">
+                            <div class="font-bold text-slate-800">${armada.name} <span class="font-normal text-slate-500">(${armada.driver})</span></div>
+                            <div class="text-slate-500 flex items-center gap-2">
+                                <span><i class="fa-regular fa-calendar text-slate-400 mr-1"></i>${t.date}</span>
+                                <span class="px-1.5 py-0.5 rounded bg-sky-100 text-sky-700 font-semibold text-[10px]">${bbm.name}</span>
+                                <span class="text-slate-400">${t.ket || ''}</span>
+                            </div>
+                        </div>
+                        <div class="text-right flex items-center space-x-3">
+                            <div>
+                                <div class="font-bold text-sky-600">${t.liters} L</div>
+                                <div class="text-[11px] font-semibold text-emerald-600">Rp ${Math.round(t.total).toLocaleString('id-ID')}</div>
+                            </div>
+                            <button onclick="deleteTransaction('${t.id}')" title="Hapus Transaksi" class="text-slate-400 hover:text-rose-600 p-1 rounded-lg transition">
+                                <i class="fa-solid fa-trash-can text-xs"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function deleteTransaction(txId) {
+            if (confirm('Hapus riwayat transaksi ini?')) {
+                transactions = transactions.filter(t => t.id !== txId);
+                saveLocalStorageData();
+                renderRecentTransactions();
+                renderDashboard();
+                showToast('Transaksi dihapus');
+            }
+        }
+
+        function autoFillDriver() {
+            const armadaElem = document.getElementById('inputArmada');
+            if (!armadaElem) return;
+            const armadaId = parseInt(armadaElem.value);
+            const armada = armadaList.find(a => a.id === armadaId);
+            if (armada) {
+                const driverInput = document.getElementById('inputDriver');
+                const bbmSelect = document.getElementById('inputJenisBBM');
+                if (driverInput) driverInput.value = armada.driver;
+                if (armada.bbmId && bbmSelect) {
+                    bbmSelect.value = armada.bbmId;
+                    autoFillPrice();
+                }
+            }
+        }
+
+        function autoFillPrice() {
+            const bbmElem = document.getElementById('inputJenisBBM');
+            if (!bbmElem) return;
+            const bbmId = bbmElem.value;
+            const bbm = bbmPrices.find(b => b.id === bbmId);
+            if (bbm) {
+                const priceInput = document.getElementById('inputHarga');
+                const lblHarga = document.getElementById('lblHargaPerLiter');
+                if (priceInput) priceInput.value = bbm.price;
+                if (lblHarga) lblHarga.innerText = `Rp ${bbm.price.toLocaleString('id-ID')}`;
+                calculateTotal();
+            }
+        }
+
+        function calculateTotal() {
+            const literElem = document.getElementById('inputLiter');
+            const hargaElem = document.getElementById('inputHarga');
+            const liter = literElem ? parseFloat(literElem.value) || 0 : 0;
+            const harga = hargaElem ? parseFloat(hargaElem.value) || 0 : 0;
+            const total = liter * harga;
+            const lblTotal = document.getElementById('lblTotalRupiah');
+            if (lblTotal) {
+                lblTotal.innerText = `Rp ${Math.round(total).toLocaleString('id-ID')}`;
+            }
+        }
+
+        function setPresetLiter(amount) {
+            const inputL = document.getElementById('inputLiter');
+            if (inputL) {
+                inputL.value = amount;
+                calculateTotal();
+            }
+        }
+
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const date = document.getElementById('inputTanggal').value;
+            const armadaId = parseInt(document.getElementById('inputArmada').value);
+            const bbmId = document.getElementById('inputJenisBBM').value;
+            const liters = parseFloat(document.getElementById('inputLiter').value);
+            const price = parseFloat(document.getElementById('inputHarga').value);
+            const ket = document.getElementById('inputKeterangan').value;
+
+            if (!liters || liters <= 0) {
+                alert('Jumlah liter harus lebih dari 0');
+                return;
+            }
+
+            const newTx = {
+                id: 'tx_' + Date.now(),
+                date,
+                armadaId,
+                bbmId,
+                liters,
+                price,
+                total: liters * price,
+                ket
+            };
+
+            transactions.push(newTx);
+            saveLocalStorageData();
+            showToast('Transaksi berhasil ditambahkan!');
+
+            resetForm();
+            renderRecentTransactions();
+        }
+
+        function resetForm() {
+            const form = document.getElementById('transactionForm');
+            if (form) form.reset();
+            const dateInput = document.getElementById('inputTanggal');
+            if (dateInput) dateInput.valueAsDate = new Date();
+            autoFillDriver();
+            calculateTotal();
+        }
+
+        // FEATURE: INSIDENTIL FORM & PRINT SYSTEM
+        function handleInsidentilSubmit(e) {
+            e.preventDefault();
+
+            const noSurat = document.getElementById('insNoSurat').value;
+            const date = document.getElementById('insTanggal').value;
+            const armadaId = parseInt(document.getElementById('insArmadaSelect').value);
+            const driver = document.getElementById('insDriver').value;
+            const bbmId = document.getElementById('insBbmSelect').value;
+            const liters = parseFloat(document.getElementById('insLiter').value);
+            const spbu = document.getElementById('insSpbu').value;
+            const keperluan = document.getElementById('insKeperluan').value;
+            const pemohon = document.getElementById('insPemohon').value;
+            const pejabat = document.getElementById('insPejabat').value;
+
+            if (!armadaId || !liters || liters <= 0) {
+                alert('Harap lengkapi form dengan benar!');
+                return;
+            }
+
+            const armada = armadaList.find(a => a.id === armadaId) || { name: 'Armada', driver: '-' };
+            const bbm = bbmPrices.find(b => b.id === bbmId) || { name: 'Bio Solar', price: 0 };
+
+            const newIns = {
+                id: 'ins_' + Date.now(),
+                noSurat,
+                date,
+                armadaId,
+                armadaName: armada.name,
+                driver,
+                bbmId,
+                bbmName: bbm.name,
+                liters,
+                price: bbm.price,
+                total: liters * bbm.price,
+                spbu,
+                keperluan,
+                pemohon,
+                pejabat
+            };
+
+            insidentilList.unshift(newIns);
+
+            // Simpan juga secara otomatis ke Transaksi Utama (Keterangan Insidentil)
+            transactions.push({
+                id: 'tx_' + Date.now(),
+                date,
+                armadaId,
+                bbmId,
+                liters,
+                price: bbm.price,
+                total: liters * bbm.price,
+                ket: 'Insidentil'
+            });
+
+            saveLocalStorageData();
+            renderInsidentilTab();
+            showToast('Form BBM Insidentil disimpan!');
+
+            // Langsung Cetak Form 2 Rangkap
+            printFormInsidentil(newIns);
+        }
+
+        function renderInsidentilTab() {
+            const container = document.getElementById('insidentilTableBody');
+            if (!container) return;
+
+            // Generate No Surat Otomatis untuk Form
+            const insNoSuratElem = document.getElementById('insNoSurat');
+            if (insNoSuratElem) {
+                const count = insidentilList.length + 1;
+                const paddedCount = String(count).padStart(3, '0');
+                const romawi = ["I","II","III","IV","V","VI","VII","VIII","IX","X","XI","XII"][new Date().getMonth()];
+                insNoSuratElem.value = `${paddedCount}/BBM-INS/${romawi}/2026`;
+            }
+
+            if (insidentilList.length === 0) {
+                container.innerHTML = `<tr><td colspan="7" class="p-4 text-center text-xs text-slate-400">Belum ada pengajuan BBM insidentil dicatat</td></tr>`;
+                return;
+            }
+
+            container.innerHTML = insidentilList.map((item, idx) => `
+                <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
+                    <td class="p-3 font-semibold text-slate-400 text-center">${idx + 1}</td>
+                    <td class="p-3 font-mono text-sky-700 font-bold">${item.noSurat}</td>
+                    <td class="p-3 text-slate-600">${item.date}</td>
+                    <td class="p-3 font-bold text-slate-800">${item.armadaName} <span class="text-slate-500 font-normal">(${item.driver})</span></td>
+                    <td class="p-3 font-bold text-sky-600">${item.liters} L <span class="text-[10px] text-slate-400 font-normal">(${item.bbmName})</span></td>
+                    <td class="p-3 text-slate-600 max-w-xs truncate">${item.keperluan}</td>
+                    <td class="p-3 text-center space-x-1">
+                        <button onclick="printFormInsidentilById('${item.id}')" title="Cetak Surat 2 Rangkap" class="px-2.5 py-1 bg-sky-600 text-white rounded-lg hover:bg-sky-700 font-semibold text-[11px] transition shadow-sm">
+                            <i class="fa-solid fa-print mr-1"></i> Cetak (2x)
+                        </button>
+                        <button onclick="deleteInsidentil('${item.id}')" class="p-1 text-slate-400 hover:text-rose-600 transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function printFormInsidentilById(id) {
+            const item = insidentilList.find(i => i.id === id);
+            if (item) {
+                printFormInsidentil(item);
+            }
+        }
+
+        function deleteInsidentil(id) {
+            if (confirm('Hapus pencatatan surat pengajuan insidentil ini?')) {
+                insidentilList = insidentilList.filter(i => i.id !== id);
+                saveLocalStorageData();
+                renderInsidentilTab();
+                showToast('Pengajuan insidentil dihapus');
+            }
+        }
+
+        // FEATURE: CETAK LAPORAN MATRIKS HARIAN (DENGAN TANDA TANGAN)
+        function printMatriksReport() {
+            const printArea = document.getElementById('printArea');
+            if (!printArea) return;
+
+            const monthElem = document.getElementById('matriksMonthFilter');
+            const selectedMonth = parseInt(monthElem.value);
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const currentMonthName = monthNames[selectedMonth - 1];
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            // Generate Baris Tabel Matriks untuk Cetak
+            let rowsHtml = '';
+            let dailyTotals = new Array(31).fill(0);
+            let grandTotalLiterMonth = 0;
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+                const activeCatIds = CATEGORIES.filter(cat => armadaTx.some(t => getTransactionCatId(t) === cat.id));
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]];
+
+                catsToDisplay.forEach((cat, index) => {
+                    let rowTotal = 0;
+                    let dayCellsHtml = '';
+
+                    for (let day = 1; day <= 31; day++) {
+                        const dayLiters = armadaTx
+                            .filter(t => getTransactionCatId(t) === cat.id && new Date(t.date).getDate() === day)
+                            .reduce((sum, t) => sum + t.liters, 0);
+
+                        rowTotal += dayLiters;
+                        dailyTotals[day - 1] += dayLiters;
+
+                        dayCellsHtml += `<td class="p-1 border border-slate-400 text-center text-[9px] ${dayLiters > 0 ? 'font-bold text-slate-900' : 'text-slate-300'}">${dayLiters > 0 ? dayLiters : '-'}</td>`;
+                    }
+
+                    grandTotalLiterMonth += rowTotal;
+                    const isFirstRow = (index === 0);
+                    const rowSpanAttr = isFirstRow ? `rowspan="${catsToDisplay.length}"` : '';
+
+                    rowsHtml += `
+                        <tr>
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-1 border border-slate-400 font-bold text-[10px] text-left align-middle">${armada.name}</td>` : ''}
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-1 border border-slate-400 text-[9px] text-left align-middle">${armada.driver}</td>` : ''}
+                            <td class="p-1 border border-slate-400 text-left text-[9px] font-semibold">${cat.name}</td>
+                            ${dayCellsHtml}
+                            <td class="p-1 border border-slate-400 text-right font-bold text-[10px] bg-slate-100">${rowTotal > 0 ? rowTotal.toLocaleString('id-ID') : 0}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            // Total Footer Baris Tanggal
+            let footerDayCellsHtml = '';
+            for (let d = 0; d < 31; d++) {
+                footerDayCellsHtml += `<td class="p-1 border border-slate-800 text-center font-bold text-[9px]">${dailyTotals[d] > 0 ? dailyTotals[d] : '-'}</td>`;
+            }
+
+            // Generate Tanda Tangan dari Master
+            const signaturesHtml = signatureList.map(s => `
+                <div class="text-center px-2">
+                    <p class="text-[10px] font-medium text-slate-600">${s.location || 'Sleman'}, ${new Date().getDate()} ${currentMonthName} 2026</p>
+                    <p class="text-[10px] font-bold text-slate-800 uppercase mt-0.5">${s.title}</p>
+                    <div class="h-16"></div>
+                    <p class="text-[11px] font-bold underline text-slate-900">${s.name}</p>
+                    <p class="text-[9px] font-mono text-slate-600">NIP. ${s.nip}</p>
+                </div>
+            `).join('');
+
+            // Render Laporan Utuh
+            printArea.innerHTML = `
+                <div class="p-6 bg-white text-slate-900 font-sans space-y-4">
+                    <!-- KOP SURAT LAPORAN -->
+                    <div class="text-center border-b-2 border-slate-800 pb-3">
+                        <h2 class="font-extrabold text-base tracking-wide uppercase">DINAS LINGKUNGAN HIDUP / PENGELOLAAN TPST</h2>
+                        <h3 class="font-bold text-sm tracking-wide uppercase text-slate-700">LAPORAN MATRIKS REALISASI PENGAMBILAN BBM HARIAN</h3>
+                        <p class="text-xs text-slate-600 mt-1">Periode Bulan: <strong class="uppercase text-slate-900">${currentMonthName} 2026</strong> | Satuan: Liter (L)</p>
+                    </div>
+
+                    <!-- TABEL MATRIKS PRINT -->
+                    <table class="w-full text-left border-collapse border border-slate-800">
+                        <thead>
+                            <tr class="bg-slate-200 text-slate-900 font-bold uppercase text-[9px] text-center">
+                                <th class="p-1 border border-slate-800 w-24 text-left">Armada / TPST</th>
+                                <th class="p-1 border border-slate-800 w-20 text-left">Driver</th>
+                                <th class="p-1 border border-slate-800 w-28 text-left">Kategori BBM</th>
+                                ${Array.from({length: 31}, (_, i) => `<th class="p-1 border border-slate-800">${i + 1}</th>`).join('')}
+                                <th class="p-1 border border-slate-800 bg-slate-300 w-12">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-200 text-slate-900 font-bold text-[9px]">
+                                <td colspan="3" class="p-1.5 border border-slate-800 text-right uppercase">Total Harian (Liter):</td>
+                                ${footerDayCellsHtml}
+                                <td class="p-1.5 border border-slate-800 text-right bg-slate-300 font-extrabold text-[10px]">${grandTotalLiterMonth.toLocaleString('id-ID')}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- BLOK TANDA TANGAN -->
+                    <div class="grid grid-cols-${Math.min(signatureList.length, 3)} gap-4 pt-6">
+                        ${signaturesHtml}
+                    </div>
+                </div>
+            `;
+
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        }
+
+        function generateSuratHTML(data, labelRangkap, warnaBadge) {
+            return `
+                <div class="border-2 border-slate-800 p-6 rounded-lg bg-white text-slate-900 font-sans text-xs space-y-4">
+                    <!-- Header Nota -->
+                    <div class="flex justify-between items-start border-b-2 border-slate-800 pb-3">
+                        <div>
+                            <h2 class="font-extrabold text-base tracking-wide uppercase text-slate-900">DINAS LINGKUNGAN HIDUP / PENGELOLAAN TPST</h2>
+                            <p class="text-[11px] text-slate-600">Surat Perintah Pengambilan & Bukti Penerimaan BBM Insidentil</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="inline-block px-3 py-1 text-[11px] font-bold text-white uppercase rounded ${warnaBadge}">${labelRangkap}</span>
+                            <div class="font-mono font-bold text-slate-800 mt-1">No: ${data.noSurat}</div>
+                            <div class="text-[10px] text-slate-500">Tgl: ${data.date}</div>
+                        </div>
+                    </div>
+
+                    <!-- BAGIAN 1: SURAT PERINTAH PENGAMBILAN BBM -->
+                    <div class="space-y-2">
+                        <div class="bg-slate-100 px-2 py-1 font-bold text-[11px] uppercase tracking-wider text-slate-800 border-l-4 border-sky-600">
+                            I. SURAT PERINTAH PENGAMBILAN BBM (UNTUK SPBU/POM)
+                        </div>
+                        <table class="w-full text-xs">
+                            <tr>
+                                <td class="py-1 w-36 font-semibold text-slate-600">Tujuan SPBU / POM</td>
+                                <td class="py-1">: <strong class="text-slate-900">${data.spbu}</strong></td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-semibold text-slate-600">Kendaraan / Lokasi</td>
+                                <td class="py-1">: <strong class="text-slate-900">${data.armadaName}</strong> (Driver: ${data.driver})</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-semibold text-slate-600">Jenis & Volume BBM</td>
+                                <td class="py-1">: <span class="font-extrabold text-sky-700 text-sm">${data.liters} LITER</span> (${data.bbmName})</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-semibold text-slate-600">Keperluan Pengisian</td>
+                                <td class="py-1">: ${data.keperluan}</td>
+                            </tr>
+                        </table>
+                    </div>
+
+                    <!-- Tanda Tangan Perintah Pengambilan -->
+                    <div class="grid grid-cols-2 gap-4 text-center pt-2 border-t border-slate-200">
+                        <div>
+                            <p class="text-[10px] text-slate-500">Pemohon / Driver</p>
+                            <div class="h-12"></div>
+                            <p class="font-bold underline text-slate-800">${data.pemohon || data.driver}</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500">Pejabat / Penanggung Jawab Lapangan</p>
+                            <div class="h-12"></div>
+                            <p class="font-bold underline text-slate-800">${data.pejabat || 'NIP. .............................'}</p>
+                        </div>
+                    </div>
+
+                    <!-- Garis Pemisah Garis Putus-putus -->
+                    <div class="border-b-2 border-dashed border-slate-400 my-4 relative">
+                        <span class="absolute right-0 -top-3 bg-white px-2 text-[9px] text-slate-400 font-mono">potong di sini</span>
+                    </div>
+
+                    <!-- BAGIAN 2: BUKTI PENERIMAAN BBM -->
+                    <div class="space-y-2">
+                        <div class="bg-slate-100 px-2 py-1 font-bold text-[11px] uppercase tracking-wider text-slate-800 border-l-4 border-emerald-600">
+                            II. BUKTI PENERIMAAN BBM (DIISI SAAT DI POM/SPBU)
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div>
+                                <span class="text-slate-500">Jumlah Liter Realisasi:</span>
+                                <div class="border-b border-dotted border-slate-800 h-6"></div>
+                            </div>
+                            <div>
+                                <span class="text-slate-500">Nominal Total (Rp):</span>
+                                <div class="border-b border-dotted border-slate-800 h-6"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Tanda Tangan Penerimaan -->
+                    <div class="grid grid-cols-2 gap-4 text-center pt-2">
+                        <div>
+                            <p class="text-[10px] text-slate-500">Petugas SPBU / POM</p>
+                            <div class="h-10"></div>
+                            <p class="font-bold border-t border-slate-300 mx-6 pt-0.5">( .................................... )</p>
+                        </div>
+                        <div>
+                            <p class="text-[10px] text-slate-500">Penerima / Pengemudi</p>
+                            <div class="h-10"></div>
+                            <p class="font-bold border-t border-slate-300 mx-6 pt-0.5">${data.driver}</p>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function printFormInsidentil(data) {
+            const printArea = document.getElementById('printArea');
+            if (!printArea) return;
+
+            // Render 2 Rangkap (1 Lembar untuk SPBU, 1 Lembar untuk ARSIP)
+            printArea.innerHTML = `
+                <div class="space-y-6 p-4">
+                    ${generateSuratHTML(data, "RANGKAP 1: ARSIP KANTOR / ADMIN", "bg-sky-700")}
+                    <div class="py-4"></div>
+                    ${generateSuratHTML(data, "RANGKAP 2: UNTUK PETUGAS SPBU / POM", "bg-emerald-700")}
+                </div>
+            `;
+
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        }
+
+        const CATEGORIES = [
+            { id: 'bio_rutin', name: 'Bio Solar (Rutin)', bbmId: 'bio_solar', isInsidentil: false, colorBg: 'bg-sky-50 text-sky-700', badgeClass: 'bg-sky-100 text-sky-700' },
+            { id: 'bio_ins', name: 'Bio Solar (Insidentil)', bbmId: 'bio_solar', isInsidentil: true, colorBg: 'bg-rose-50 text-rose-700', badgeClass: 'bg-rose-100 text-rose-700' },
+            { id: 'dex_rutin', name: 'Pertamina Dex (Rutin)', bbmId: 'dex_rutin', isInsidentil: false, colorBg: 'bg-emerald-50 text-emerald-700', badgeClass: 'bg-emerald-100 text-emerald-700' },
+            { id: 'dex_ins', name: 'Pertamina Dex (Insidentil)', bbmId: 'dex_rutin', isInsidentil: true, colorBg: 'bg-amber-50 text-amber-700', badgeClass: 'bg-amber-100 text-amber-700' },
+            { id: 'dex_tpst', name: 'Pertamina Dex TPST', bbmId: 'dex_tpst', isInsidentil: false, colorBg: 'bg-orange-50 text-orange-700', badgeClass: 'bg-orange-100 text-orange-700' },
+            { id: 'pertamax', name: 'Pertamax', bbmId: 'pertamax', isInsidentil: false, colorBg: 'bg-indigo-50 text-indigo-700', badgeClass: 'bg-indigo-100 text-indigo-700' }
+        ];
+
+        function getTransactionCatId(t) {
+            const isIns = (t.ket === 'Insidentil');
+            if (t.bbmId === 'bio_solar') return isIns ? 'bio_ins' : 'bio_rutin';
+            if (t.bbmId === 'dex_rutin') return isIns ? 'dex_ins' : 'dex_rutin';
+            if (t.bbmId === 'dex_tpst') return 'dex_tpst';
+            if (t.bbmId === 'pertamax') return 'pertamax';
+            return 'bio_rutin';
+        }
+
+        function renderDashboard() {
+            const monthElem = document.getElementById('dashMonthFilter');
+            if (!monthElem) return;
+            const selectedMonth = parseInt(monthElem.value);
+            
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            let liters = { bio_rutin: 0, bio_ins: 0, dex_rutin: 0, dex_ins: 0, dex_tpst: 0, pertamax: 0 };
+            let biayas = { bio_rutin: 0, bio_ins: 0, dex_rutin: 0, dex_ins: 0, dex_tpst: 0, pertamax: 0 };
+
+            monthTx.forEach(t => {
+                const catId = getTransactionCatId(t);
+                if (liters[catId] !== undefined) {
+                    liters[catId] += t.liters;
+                    biayas[catId] += t.total;
+                }
+            });
+
+            const totalLiter = Object.values(liters).reduce((a, b) => a + b, 0);
+            const totalBiayaKeseluruhan = Object.values(biayas).reduce((a, b) => a + b, 0);
+            const activeArmadaSet = new Set(monthTx.map(t => t.armadaId));
+            const activeDays = new Set(monthTx.map(t => t.date)).size || 1;
+            const activeArmadaCount = activeArmadaSet.size || 1;
+
+            const avgHarianPerArmada = (totalLiter / activeDays) / activeArmadaCount;
+
+            document.getElementById('kpiTotalLiter').innerText = `${totalLiter.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterBioSolar').innerText = `${liters.bio_rutin.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterBioSolarIns').innerText = `${liters.bio_ins.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterDex').innerText = `${liters.dex_rutin.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterDexIns').innerText = `${liters.dex_ins.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterDexTpst').innerText = `${liters.dex_tpst.toLocaleString('id-ID')} L`;
+            document.getElementById('kpiLiterPertamax').innerText = `${liters.pertamax.toLocaleString('id-ID')} L`;
+
+            document.getElementById('kpiTotalBiayaCard').innerText = `Rp ${Math.round(totalBiayaKeseluruhan).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaBioSolar').innerText = `Rp ${Math.round(biayas.bio_rutin).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaBioSolarIns').innerText = `Rp ${Math.round(biayas.bio_ins).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaDex').innerText = `Rp ${Math.round(biayas.dex_rutin).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaDexIns').innerText = `Rp ${Math.round(biayas.dex_ins).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaDexTpst').innerText = `Rp ${Math.round(biayas.dex_tpst).toLocaleString('id-ID')}`;
+            document.getElementById('kpiBiayaPertamax').innerText = `Rp ${Math.round(biayas.pertamax).toLocaleString('id-ID')}`;
+
+            document.getElementById('kpiArmadaAktif').innerText = `${activeArmadaSet.size} Unit`;
+            document.getElementById('kpiAvgHarian').innerText = `${avgHarianPerArmada.toFixed(1)} L/hari`;
+
+            const armadaStats = {};
+            monthTx.forEach(t => {
+                if (!armadaStats[t.armadaId]) {
+                    armadaStats[t.armadaId] = { liters: 0, total: 0 };
+                }
+                armadaStats[t.armadaId].liters += t.liters;
+                armadaStats[t.armadaId].total += t.total;
+            });
+
+            const sortedArmadaStats = Object.keys(armadaStats)
+                .map(id => {
+                    const arm = armadaList.find(a => a.id === parseInt(id)) || { name: 'Unknown', driver: '-' };
+                    return {
+                        name: arm.name,
+                        driver: arm.driver,
+                        liters: armadaStats[id].liters,
+                        total: armadaStats[id].total
+                    };
+                })
+                .sort((a,b) => b.liters - a.liters)
+                .slice(0, 5);
+
+            const topTableBody = document.getElementById('topArmadaTable');
+            if (topTableBody) {
+                if (sortedArmadaStats.length === 0) {
+                    topTableBody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-xs text-slate-400">Tidak ada data transaksi bulan ini</td></tr>`;
+                } else {
+                    topTableBody.innerHTML = sortedArmadaStats.map((item, idx) => `
+                        <tr class="hover:bg-slate-50 transition">
+                            <td class="p-4 font-bold text-slate-400">${idx + 1}</td>
+                            <td class="p-4 font-semibold text-slate-800">${item.name}</td>
+                            <td class="p-4 text-slate-600">${item.driver}</td>
+                            <td class="p-4 text-right font-bold text-sky-600">${item.liters.toLocaleString('id-ID')} L</td>
+                            <td class="p-4 text-right font-bold text-emerald-600">Rp ${Math.round(item.total).toLocaleString('id-ID')}</td>
+                        </tr>
+                    `).join('');
+                }
+            }
+
+            renderTrendChart(monthTx, selectedMonth);
+            renderPieChart(monthTx);
+        }
+
+        function renderTrendChart(monthTx, month) {
+            const chartCanvas = document.getElementById('dailyTrendChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
+            const daysInMonth = 31;
+            
+            const bioDaily = new Array(daysInMonth).fill(0);
+            const bioInsDaily = new Array(daysInMonth).fill(0);
+            const dexDaily = new Array(daysInMonth).fill(0);
+            const dexTpstDaily = new Array(daysInMonth).fill(0);
+
+            monthTx.forEach(t => {
+                const day = new Date(t.date).getDate();
+                if (day >= 1 && day <= 31) {
+                    const catId = getTransactionCatId(t);
+                    if (catId === 'bio_rutin') bioDaily[day - 1] += t.liters;
+                    else if (catId === 'bio_ins') bioInsDaily[day - 1] += t.liters;
+                    else if (catId === 'dex_rutin' || catId === 'dex_ins') dexDaily[day - 1] += t.liters;
+                    else if (catId === 'dex_tpst') dexTpstDaily[day - 1] += t.liters;
+                }
+            });
+
+            const labels = Array.from({length: 31}, (_, i) => `${i + 1}`);
+
+            if (trendChartInstance) trendChartInstance.destroy();
+
+            trendChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: 'Bio Solar (Rutin)',
+                            data: bioDaily,
+                            borderColor: '#0284c7',
+                            backgroundColor: 'rgba(2, 132, 199, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Bio Solar (Insidentil)',
+                            data: bioInsDaily,
+                            borderColor: '#f43f5e',
+                            backgroundColor: 'rgba(244, 63, 94, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Pertamina Dex',
+                            data: dexDaily,
+                            borderColor: '#10b981',
+                            backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 3
+                        },
+                        {
+                            label: 'Dex TPST',
+                            data: dexTpstDaily,
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                            borderWidth: 2,
+                            tension: 0.3,
+                            pointRadius: 3
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { 
+                            display: true,
+                            position: 'top',
+                            labels: { boxWidth: 12, font: { size: 11 } }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            grid: { color: '#f1f5f9' },
+                            title: { display: true, text: 'Liter', font: { size: 11 } }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function renderPieChart(monthTx) {
+            const chartCanvas = document.getElementById('bbmTypeChart');
+            if (!chartCanvas) return;
+            const ctx = chartCanvas.getContext('2d');
+            const counts = { bio_rutin: 0, bio_ins: 0, dex_rutin: 0, dex_ins: 0, dex_tpst: 0, pertamax: 0 };
+
+            monthTx.forEach(t => {
+                const catId = getTransactionCatId(t);
+                if (counts[catId] !== undefined) counts[catId] += t.liters;
+            });
+
+            const labels = ['Bio Solar (Rutin)', 'Bio Solar (Insidentil)', 'Dex (Rutin)', 'Dex (Insidentil)', 'Dex TPST', 'Pertamax'];
+            const data = [counts.bio_rutin, counts.bio_ins, counts.dex_rutin, counts.dex_ins, counts.dex_tpst, counts.pertamax];
+            const colors = ['#0284c7', '#f43f5e', '#10b981', '#f59e0b', '#f97316', '#6366f1'];
+
+            if (pieChartInstance) pieChartInstance.destroy();
+
+            pieChartInstance = new Chart(ctx, {
+                type: 'doughnut',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        data: data,
+                        backgroundColor: colors,
+                        borderWidth: 2,
+                        borderColor: '#ffffff'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 10, font: { size: 10 } } }
+                    },
+                    cutout: '65%'
+                }
+            });
+        }
+
+        function renderMatriksTable() {
+            const monthElem = document.getElementById('matriksMonthFilter');
+            if (!monthElem) return;
+            const selectedMonth = parseInt(monthElem.value);
+            const headerRow = document.getElementById('matriksHeaderRow');
+            const tbody = document.getElementById('matriksTableBody');
+
+            let headerHtml = `
+                <th class="p-3 sticky left-0 z-20 bg-slate-800 min-w-[150px] text-left border-r border-slate-700">Armada / TPST</th>
+                <th class="p-3 bg-slate-800 min-w-[110px] text-left border-r border-slate-700">Driver</th>
+                <th class="p-3 bg-slate-800 min-w-[140px] text-left border-r border-slate-700">Kategori BBM</th>
+            `;
+            for (let d = 1; d <= 31; d++) {
+                headerHtml += `<th class="p-2 border-r border-slate-700 min-w-[40px]">${d}</th>`;
+            }
+            headerHtml += `<th class="p-3 bg-sky-700 text-white min-w-[80px] font-bold">Total (L)</th>`;
+            if (headerRow) headerRow.innerHTML = headerHtml;
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            let html = '';
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+                
+                const activeCatIds = CATEGORIES.filter(cat => 
+                    armadaTx.some(t => getTransactionCatId(t) === cat.id)
+                );
+
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [
+                    CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]
+                ];
+
+                catsToDisplay.forEach((cat, index) => {
+                    let rowTotal = 0;
+                    let dayCells = '';
+
+                    for (let day = 1; day <= 31; day++) {
+                        const dayLiters = armadaTx
+                            .filter(t => getTransactionCatId(t) === cat.id && new Date(t.date).getDate() === day)
+                            .reduce((sum, t) => sum + t.liters, 0);
+
+                        rowTotal += dayLiters;
+
+                        const cellBg = dayLiters > 0 ? cat.colorBg + ' font-bold' : 'text-slate-300';
+                        dayCells += `<td class="p-2 border-r border-slate-200 ${cellBg}">${dayLiters > 0 ? dayLiters : '-'}</td>`;
+                    }
+
+                    const isFirstRow = (index === 0);
+                    const rowSpanAttr = isFirstRow ? `rowspan="${catsToDisplay.length}"` : '';
+
+                    html += `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-200">
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-3 sticky left-0 z-10 bg-white border-r border-slate-200 text-left font-semibold text-slate-800 align-middle">${armada.name}</td>` : ''}
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-3 border-r border-slate-200 text-left text-slate-600 align-middle">${armada.driver}</td>` : ''}
+                            <td class="p-2.5 border-r border-slate-200 text-left">
+                                <span class="px-2 py-1 rounded-md text-[11px] font-bold ${cat.badgeClass}">${cat.name}</span>
+                            </td>
+                            ${dayCells}
+                            <td class="p-3 bg-slate-50 font-bold text-slate-800 text-right">${rowTotal > 0 ? rowTotal.toLocaleString('id-ID') : 0} L</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            if (tbody) tbody.innerHTML = html;
+        }
+
+        function renderRekapTable() {
+            const monthElem = document.getElementById('rekapMonthFilter');
+            if (!monthElem) return;
+            const selectedMonth = parseInt(monthElem.value);
+            const tbody = document.getElementById('rekapTableBody');
+            const tfoot = document.getElementById('rekapTableFoot');
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            let html = '';
+            let grandWeekTotals = [0, 0, 0, 0, 0];
+            let grandTotalLiter = 0;
+            let grandTotalRupiah = 0;
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+
+                const activeCatIds = CATEGORIES.filter(cat => 
+                    armadaTx.some(t => getTransactionCatId(t) === cat.id)
+                );
+
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [
+                    CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]
+                ];
+
+                catsToDisplay.forEach((cat, index) => {
+                    const weekLiters = [0, 0, 0, 0, 0];
+                    let totalRupiahCat = 0;
+
+                    armadaTx.filter(t => getTransactionCatId(t) === cat.id).forEach(t => {
+                        const day = new Date(t.date).getDate();
+                        if (day >= 1 && day <= 7) weekLiters[0] += t.liters;
+                        else if (day >= 8 && day <= 14) weekLiters[1] += t.liters;
+                        else if (day >= 15 && day <= 21) weekLiters[2] += t.liters;
+                        else if (day >= 22 && day <= 28) weekLiters[3] += t.liters;
+                        else if (day >= 29 && day <= 31) weekLiters[4] += t.liters;
+
+                        totalRupiahCat += t.total;
+                    });
+
+                    const totalCatLiter = weekLiters.reduce((a, b) => a + b, 0);
+
+                    weekLiters.forEach((wl, idx) => grandWeekTotals[idx] += wl);
+                    grandTotalLiter += totalCatLiter;
+                    grandTotalRupiah += totalRupiahCat;
+
+                    const isFirstRow = (index === 0);
+                    const rowSpanAttr = isFirstRow ? `rowspan="${catsToDisplay.length}"` : '';
+
+                    html += `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100">
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-4 font-semibold text-slate-800 align-middle">${armada.name}</td>` : ''}
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-4 text-slate-600 align-middle">${armada.driver}</td>` : ''}
+                            <td class="p-4">
+                                <span class="px-2.5 py-1 rounded-lg text-xs font-semibold ${cat.badgeClass}">${cat.name}</span>
+                            </td>
+                            <td class="p-4 text-center font-medium">${weekLiters[0] > 0 ? weekLiters[0] + ' L' : '-'}</td>
+                            <td class="p-4 text-center font-medium">${weekLiters[1] > 0 ? weekLiters[1] + ' L' : '-'}</td>
+                            <td class="p-4 text-center font-medium">${weekLiters[2] > 0 ? weekLiters[2] + ' L' : '-'}</td>
+                            <td class="p-4 text-center font-medium">${weekLiters[3] > 0 ? weekLiters[3] + ' L' : '-'}</td>
+                            <td class="p-4 text-center font-medium">${weekLiters[4] > 0 ? weekLiters[4] + ' L' : '-'}</td>
+                            <td class="p-4 text-right bg-sky-50 font-bold text-sky-700">${totalCatLiter.toLocaleString('id-ID')} L</td>
+                            <td class="p-4 text-right bg-emerald-50 font-bold text-emerald-700">Rp ${Math.round(totalRupiahCat).toLocaleString('id-ID')}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            if (tbody) tbody.innerHTML = html;
+
+            if (tfoot) {
+                tfoot.innerHTML = `
+                    <td colspan="3" class="p-4">TOTAL KESELURUHAN</td>
+                    <td class="p-4 text-center">${grandWeekTotals[0].toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-center">${grandWeekTotals[1].toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-center">${grandWeekTotals[2].toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-center">${grandWeekTotals[3].toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-center">${grandWeekTotals[4].toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-right bg-sky-800">${grandTotalLiter.toLocaleString('id-ID')} L</td>
+                    <td class="p-4 text-right bg-emerald-800">Rp ${Math.round(grandTotalRupiah).toLocaleString('id-ID')}</td>
+                `;
+            }
+        }
+
+        function renderMasterSection() {
+            const priceContainer = document.getElementById('bbmPriceList');
+            if (priceContainer) {
+                priceContainer.innerHTML = bbmPrices.map(b => `
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-between items-center">
+                        <div>
+                            <div class="font-bold text-sm text-slate-800">${b.name}</div>
+                            <div class="text-xs text-slate-500">Harga per Liter</div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <input type="number" value="${b.price}" onchange="updateBbmPrice('${b.id}', this.value)" class="w-28 px-3 py-1.5 rounded-lg border border-slate-300 text-sm font-bold text-emerald-600 text-right">
+                        </div>
+                    </div>
+                `).join('');
+            }
+
+            const armadaContainer = document.getElementById('masterArmadaBody');
+            if (armadaContainer) {
+                armadaContainer.innerHTML = armadaList.map(a => {
+                    const bbm = bbmPrices.find(b => b.id === a.bbmId) || { name: 'Bio Solar' };
+                    return `
+                        <tr class="hover:bg-slate-50 transition border-b border-slate-100 text-xs">
+                            <td class="p-3 font-semibold text-slate-800">${a.name}</td>
+                            <td class="p-3 text-slate-600">${a.driver}</td>
+                            <td class="p-3 font-semibold text-sky-600">${bbm.name}</td>
+                            <td class="p-3 text-center">
+                                <button onclick="deleteArmada(${a.id})" class="text-xs text-rose-500 hover:text-rose-700 font-medium">Hapus</button>
+                            </td>
+                        </tr>
+                    `;
+                }).join('');
+            }
+
+            // Render Master Tanda Tangan
+            const sigContainer = document.getElementById('masterSignatureContainer');
+            if (sigContainer) {
+                sigContainer.innerHTML = signatureList.map((s, idx) => `
+                    <div class="p-4 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                        <div class="flex justify-between items-center border-b border-slate-200 pb-2">
+                            <span class="text-xs font-bold text-sky-800 uppercase"><i class="fa-solid fa-pen-nib mr-1"></i> Penandatangan ${idx + 1}</span>
+                            <button onclick="deleteSignature('${s.id}')" class="text-xs text-rose-500 hover:text-rose-700"><i class="fa-solid fa-trash-can"></i> Hapus</button>
+                        </div>
+                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Jabatan / Judul</label>
+                                <input type="text" value="${s.title}" onchange="updateSignature('${s.id}', 'title', this.value)" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 font-semibold">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nama Pejabat</label>
+                                <input type="text" value="${s.name}" onchange="updateSignature('${s.id}', 'name', this.value)" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-slate-800 font-bold">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">NIP</label>
+                                <input type="text" value="${s.nip}" onchange="updateSignature('${s.id}', 'nip', this.value)" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600 font-mono">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Kota / Lokasi</label>
+                                <input type="text" value="${s.location}" onchange="updateSignature('${s.id}', 'location', this.value)" class="w-full px-3 py-1.5 rounded-lg border border-slate-300 text-slate-600">
+                            </div>
+                        </div>
+                    </div>
+                `).join('');
+            }
+        }
+
+        function updateSignature(id, field, value) {
+            const sig = signatureList.find(s => s.id === id);
+            if (sig) {
+                sig[field] = value;
+                saveLocalStorageData();
+                showToast('Tanda tangan diperbarui!');
+            }
+        }
+
+        function addNewSignature() {
+            const newId = 'sig_' + Date.now();
+            signatureList.push({
+                id: newId,
+                title: 'Pejabat Penandatangan',
+                name: 'Nama Pejabat, S.T.',
+                nip: '19800101 200501 1 001',
+                location: 'Sleman'
+            });
+            saveLocalStorageData();
+            renderMasterSection();
+            showToast('Form tanda tangan baru ditambahkan!');
+        }
+
+        function deleteSignature(id) {
+            if (confirm('Hapus penandatangan ini?')) {
+                signatureList = signatureList.filter(s => s.id !== id);
+                saveLocalStorageData();
+                renderMasterSection();
+                showToast('Penandatangan dihapus');
+            }
+        }
+
+        // FEATURE: EXPORT MATRIKS HARIAN TO EXCEL (.xlsx)
+        function exportMatriksExcel() {
+            const monthElem = document.getElementById('matriksMonthFilter');
+            const selectedMonth = parseInt(monthElem ? monthElem.value : 8);
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const currentMonthName = monthNames[selectedMonth - 1];
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            // Headers
+            const headers = ["Armada / TPST", "Driver", "Kategori BBM"];
+            for (let d = 1; d <= 31; d++) headers.push(String(d));
+            headers.push("Total (L)");
+
+            const excelData = [
+                ["DINAS LINGKUNGAN HIDUP / PENGELOLAAN TPST"],
+                [`LAPORAN MATRIKS REALISASI PENGAMBILAN BBM HARIAN - ${currentMonthName.toUpperCase()} 2026`],
+                [],
+                headers
+            ];
+
+            let dailyTotals = new Array(31).fill(0);
+            let grandTotalLiter = 0;
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+                const activeCatIds = CATEGORIES.filter(cat => armadaTx.some(t => getTransactionCatId(t) === cat.id));
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]];
+
+                catsToDisplay.forEach(cat => {
+                    let rowTotal = 0;
+                    const row = [armada.name, armada.driver, cat.name];
+
+                    for (let day = 1; day <= 31; day++) {
+                        const dayLiters = armadaTx
+                            .filter(t => getTransactionCatId(t) === cat.id && new Date(t.date).getDate() === day)
+                            .reduce((sum, t) => sum + t.liters, 0);
+
+                        rowTotal += dayLiters;
+                        dailyTotals[day - 1] += dayLiters;
+                        row.push(dayLiters > 0 ? dayLiters : 0);
+                    }
+
+                    grandTotalLiter += rowTotal;
+                    row.push(rowTotal);
+                    excelData.push(row);
+                });
+            });
+
+            // Footer row
+            const footerRow = ["TOTAL KESELURUHAN (LITER)", "", ""];
+            dailyTotals.forEach(val => footerRow.push(val));
+            footerRow.push(grandTotalLiter);
+            excelData.push(footerRow);
+
+            // Add Signatures
+            excelData.push([]);
+            excelData.push([]);
+            const sigTitleRow = ["", "", ""];
+            const sigNameRow = ["", "", ""];
+            const sigNipRow = ["", "", ""];
+
+            signatureList.forEach(s => {
+                sigTitleRow.push(s.title);
+                sigNameRow.push(s.name);
+                sigNipRow.push(`NIP. ${s.nip}`);
+            });
+
+            excelData.push(sigTitleRow);
+            excelData.push([]);
+            excelData.push([]);
+            excelData.push(sigNameRow);
+            excelData.push(sigNipRow);
+
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Matriks Harian");
+            XLSX.writeFile(wb, `Matriks_BBM_${currentMonthName}_2026.xlsx`);
+            showToast("Berhasil mengekspor Matriks Harian ke Excel!");
+        }
+
+        // FEATURE: EXPORT REKAPITULASI MINGGUAN TO EXCEL (.xlsx)
+        function exportRekapExcel() {
+            const monthElem = document.getElementById('rekapMonthFilter');
+            const selectedMonth = parseInt(monthElem ? monthElem.value : 8);
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const currentMonthName = monthNames[selectedMonth - 1];
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            const excelData = [
+                ["DINAS LINGKUNGAN HIDUP / PENGELOLAAN TPST"],
+                [`REKAPITULASI PENGAMBILAN BBM MINGGUAN & BULANAN - ${currentMonthName.toUpperCase()} 2026`],
+                [],
+                ["Armada / TPST", "Driver", "Kategori BBM", "Minggu 1 (Tgl 1-7)", "Minggu 2 (Tgl 8-14)", "Minggu 3 (Tgl 15-21)", "Minggu 4 (Tgl 22-28)", "Minggu 5 (Tgl 29-31)", "Total Liter (L)", "Total Biaya (Rp)"]
+            ];
+
+            let grandWeekTotals = [0, 0, 0, 0, 0];
+            let grandTotalLiter = 0;
+            let grandTotalRupiah = 0;
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+                const activeCatIds = CATEGORIES.filter(cat => armadaTx.some(t => getTransactionCatId(t) === cat.id));
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]];
+
+                catsToDisplay.forEach(cat => {
+                    const weekLiters = [0, 0, 0, 0, 0];
+                    let totalRupiahCat = 0;
+
+                    armadaTx.filter(t => getTransactionCatId(t) === cat.id).forEach(t => {
+                        const day = new Date(t.date).getDate();
+                        if (day >= 1 && day <= 7) weekLiters[0] += t.liters;
+                        else if (day >= 8 && day <= 14) weekLiters[1] += t.liters;
+                        else if (day >= 15 && day <= 21) weekLiters[2] += t.liters;
+                        else if (day >= 22 && day <= 28) weekLiters[3] += t.liters;
+                        else if (day >= 29 && day <= 31) weekLiters[4] += t.liters;
+
+                        totalRupiahCat += t.total;
+                    });
+
+                    const totalCatLiter = weekLiters.reduce((a, b) => a + b, 0);
+
+                    weekLiters.forEach((wl, idx) => grandWeekTotals[idx] += wl);
+                    grandTotalLiter += totalCatLiter;
+                    grandTotalRupiah += totalRupiahCat;
+
+                    excelData.push([
+                        armada.name,
+                        armada.driver,
+                        cat.name,
+                        weekLiters[0],
+                        weekLiters[1],
+                        weekLiters[2],
+                        weekLiters[3],
+                        weekLiters[4],
+                        totalCatLiter,
+                        totalRupiahCat
+                    ]);
+                });
+            });
+
+            excelData.push([
+                "TOTAL KESELURUHAN",
+                "",
+                "",
+                grandWeekTotals[0],
+                grandWeekTotals[1],
+                grandWeekTotals[2],
+                grandWeekTotals[3],
+                grandWeekTotals[4],
+                grandTotalLiter,
+                grandTotalRupiah
+            ]);
+
+            // Add Signatures
+            excelData.push([]);
+            excelData.push([]);
+            const sigTitleRow = ["", "", ""];
+            const sigNameRow = ["", "", ""];
+            const sigNipRow = ["", "", ""];
+
+            signatureList.forEach(s => {
+                sigTitleRow.push(s.title);
+                sigNameRow.push(s.name);
+                sigNipRow.push(`NIP. ${s.nip}`);
+            });
+
+            excelData.push(sigTitleRow);
+            excelData.push([]);
+            excelData.push([]);
+            excelData.push(sigNameRow);
+            excelData.push(sigNipRow);
+
+            const ws = XLSX.utils.aoa_to_sheet(excelData);
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Rekapitulasi");
+            XLSX.writeFile(wb, `Rekapitulasi_BBM_${currentMonthName}_2026.xlsx`);
+            showToast("Berhasil mengekspor Rekapitulasi ke Excel!");
+        }
+
+        // FEATURE: CETAK LAPORAN REKAPITULASI MINGGUAN / BULANAN
+        function printRekapReport() {
+            const printArea = document.getElementById('printArea');
+            if (!printArea) return;
+
+            const monthElem = document.getElementById('rekapMonthFilter');
+            const selectedMonth = parseInt(monthElem.value);
+            const monthNames = ["Januari", "Februari", "Maret", "April", "Mei", "Juni", "Juli", "Agustus", "September", "Oktober", "November", "Desember"];
+            const currentMonthName = monthNames[selectedMonth - 1];
+
+            const monthTx = transactions.filter(t => {
+                const d = new Date(t.date);
+                return d.getMonth() + 1 === selectedMonth && d.getFullYear() === 2026;
+            });
+
+            let rowsHtml = '';
+            let grandWeekTotals = [0, 0, 0, 0, 0];
+            let grandTotalLiter = 0;
+            let grandTotalRupiah = 0;
+
+            armadaList.forEach(armada => {
+                const armadaTx = monthTx.filter(t => t.armadaId === armada.id);
+
+                const activeCatIds = CATEGORIES.filter(cat => 
+                    armadaTx.some(t => getTransactionCatId(t) === cat.id)
+                );
+
+                const catsToDisplay = activeCatIds.length > 0 ? activeCatIds : [
+                    CATEGORIES.find(c => c.bbmId === armada.bbmId && !c.isInsidentil) || CATEGORIES[0]
+                ];
+
+                catsToDisplay.forEach((cat, index) => {
+                    const weekLiters = [0, 0, 0, 0, 0];
+                    let totalRupiahCat = 0;
+
+                    armadaTx.filter(t => getTransactionCatId(t) === cat.id).forEach(t => {
+                        const day = new Date(t.date).getDate();
+                        if (day >= 1 && day <= 7) weekLiters[0] += t.liters;
+                        else if (day >= 8 && day <= 14) weekLiters[1] += t.liters;
+                        else if (day >= 15 && day <= 21) weekLiters[2] += t.liters;
+                        else if (day >= 22 && day <= 28) weekLiters[3] += t.liters;
+                        else if (day >= 29 && day <= 31) weekLiters[4] += t.liters;
+
+                        totalRupiahCat += t.total;
+                    });
+
+                    const totalCatLiter = weekLiters.reduce((a, b) => a + b, 0);
+
+                    weekLiters.forEach((wl, idx) => grandWeekTotals[idx] += wl);
+                    grandTotalLiter += totalCatLiter;
+                    grandTotalRupiah += totalRupiahCat;
+
+                    const isFirstRow = (index === 0);
+                    const rowSpanAttr = isFirstRow ? `rowspan="${catsToDisplay.length}"` : '';
+
+                    rowsHtml += `
+                        <tr>
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-1.5 border border-slate-400 font-bold text-[10px] text-left align-middle">${armada.name}</td>` : ''}
+                            ${isFirstRow ? `<td ${rowSpanAttr} class="p-1.5 border border-slate-400 text-[10px] text-left align-middle">${armada.driver}</td>` : ''}
+                            <td class="p-1.5 border border-slate-400 text-left font-semibold text-[10px]">${cat.name}</td>
+                            <td class="p-1.5 border border-slate-400 text-center text-[10px]">${weekLiters[0] > 0 ? weekLiters[0] : '-'}</td>
+                            <td class="p-1.5 border border-slate-400 text-center text-[10px]">${weekLiters[1] > 0 ? weekLiters[1] : '-'}</td>
+                            <td class="p-1.5 border border-slate-400 text-center text-[10px]">${weekLiters[2] > 0 ? weekLiters[2] : '-'}</td>
+                            <td class="p-1.5 border border-slate-400 text-center text-[10px]">${weekLiters[3] > 0 ? weekLiters[3] : '-'}</td>
+                            <td class="p-1.5 border border-slate-400 text-center text-[10px]">${weekLiters[4] > 0 ? weekLiters[4] : '-'}</td>
+                            <td class="p-1.5 border border-slate-400 text-right font-bold text-[10px] bg-slate-100">${totalCatLiter.toLocaleString('id-ID')} L</td>
+                            <td class="p-1.5 border border-slate-400 text-right font-bold text-[10px] bg-slate-100">Rp ${Math.round(totalRupiahCat).toLocaleString('id-ID')}</td>
+                        </tr>
+                    `;
+                });
+            });
+
+            // Generate Tanda Tangan dari Master
+            const signaturesHtml = signatureList.map(s => `
+                <div class="text-center px-2">
+                    <p class="text-[10px] font-medium text-slate-600">${s.location || 'Sleman'}, ${new Date().getDate()} ${currentMonthName} 2026</p>
+                    <p class="text-[10px] font-bold text-slate-800 uppercase mt-0.5">${s.title}</p>
+                    <div class="h-16"></div>
+                    <p class="text-[11px] font-bold underline text-slate-900">${s.name}</p>
+                    <p class="text-[9px] font-mono text-slate-600">NIP. ${s.nip}</p>
+                </div>
+            `).join('');
+
+            printArea.innerHTML = `
+                <div class="p-6 bg-white text-slate-900 font-sans space-y-4">
+                    <!-- KOP SURAT LAPORAN REKAP -->
+                    <div class="text-center border-b-2 border-slate-800 pb-3">
+                        <h2 class="font-extrabold text-base tracking-wide uppercase">DINAS LINGKUNGAN HIDUP / PENGELOLAAN TPST</h2>
+                        <h3 class="font-bold text-sm tracking-wide uppercase text-slate-700">REKAPITULASI PENGAMBILAN BBM MINGGUAN & BULANAN</h3>
+                        <p class="text-xs text-slate-600 mt-1">Periode Bulan: <strong class="uppercase text-slate-900">${currentMonthName} 2026</strong></p>
+                    </div>
+
+                    <!-- TABEL REKAP PRINT -->
+                    <table class="w-full text-left border-collapse border border-slate-800">
+                        <thead>
+                            <tr class="bg-slate-200 text-slate-900 font-bold uppercase text-[9px] text-center">
+                                <th class="p-2 border border-slate-800 text-left">Armada / TPST</th>
+                                <th class="p-2 border border-slate-800 text-left">Driver</th>
+                                <th class="p-2 border border-slate-800 text-left">Kategori BBM</th>
+                                <th class="p-2 border border-slate-800 w-16">Minggu 1<br>(Tgl 1-7)</th>
+                                <th class="p-2 border border-slate-800 w-16">Minggu 2<br>(Tgl 8-14)</th>
+                                <th class="p-2 border border-slate-800 w-16">Minggu 3<br>(Tgl 15-21)</th>
+                                <th class="p-2 border border-slate-800 w-16">Minggu 4<br>(Tgl 22-28)</th>
+                                <th class="p-2 border border-slate-800 w-16">Minggu 5<br>(Tgl 29-31)</th>
+                                <th class="p-2 border border-slate-800 bg-slate-300 w-24 text-right">Total Liter</th>
+                                <th class="p-2 border border-slate-800 bg-slate-300 w-28 text-right">Total Biaya (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${rowsHtml}
+                        </tbody>
+                        <tfoot>
+                            <tr class="bg-slate-200 text-slate-900 font-bold text-[10px]">
+                                <td colspan="3" class="p-2 border border-slate-800 text-right uppercase">Total Keseluruhan:</td>
+                                <td class="p-2 border border-slate-800 text-center">${grandWeekTotals[0].toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-center">${grandWeekTotals[1].toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-center">${grandWeekTotals[2].toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-center">${grandWeekTotals[3].toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-center">${grandWeekTotals[4].toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-right bg-slate-300 font-extrabold">${grandTotalLiter.toLocaleString('id-ID')} L</td>
+                                <td class="p-2 border border-slate-800 text-right bg-slate-300 font-extrabold">Rp ${Math.round(grandTotalRupiah).toLocaleString('id-ID')}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+
+                    <!-- BLOK TANDA TANGAN -->
+                    <div class="grid grid-cols-${Math.min(signatureList.length, 3)} gap-4 pt-6">
+                        ${signaturesHtml}
+                    </div>
+                </div>
+            `;
+
+            setTimeout(() => {
+                window.print();
+            }, 300);
+        }
+
+        function updateBbmPrice(bbmId, newPrice) {
+            const priceNum = parseFloat(newPrice);
+            if (priceNum > 0) {
+                const bbm = bbmPrices.find(b => b.id === bbmId);
+                if (bbm) {
+                    bbm.price = priceNum;
+                    saveLocalStorageData();
+                    initUI();
+                    showToast(`Harga ${bbm.name} diperbarui!`);
+                }
+            }
+        }
+
+        function addNewArmadaPrompt() {
+            const name = prompt("Masukkan Plat Nomor Armada atau Nama Lokasi TPST:");
+            if (!name) return;
+            const driver = prompt("Masukkan Nama Driver atau Penanggung Jawab:");
+            if (!driver) return;
+
+            const newId = armadaList.length ? Math.max(...armadaList.map(a => a.id)) + 1 : 1;
+            armadaList.push({
+                id: newId,
+                name: name.trim(),
+                driver: driver.trim(),
+                bbmId: 'bio_solar'
+            });
+
+            saveLocalStorageData();
+            initUI();
+            showToast("Armada baru berhasil ditambahkan!");
+        }
+
+        function deleteArmada(id) {
+            if (confirm("Hapus armada ini dari master data?")) {
+                armadaList = armadaList.filter(a => a.id !== id);
+                saveLocalStorageData();
+                initUI();
+                showToast("Armada dihapus");
+            }
+        }
+
+        function showToast(msg) {
+            const toast = document.getElementById('toastNotification');
+            const msgElem = document.getElementById('toastMessage');
+            if (msgElem) msgElem.innerText = msg;
+            if (toast) {
+                toast.classList.remove('hidden');
+                setTimeout(() => {
+                    toast.classList.add('hidden');
+                }, 3000);
+            }
+        }
+
+        // Run application setup on DOM content load
+        document.addEventListener('DOMContentLoaded', function() {
+            loadLocalStorageData();
+            initUI();
+            switchTab('dashboard');
+
+            // Event Listeners setup
+            const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+            if (mobileMenuBtn) {
+                mobileMenuBtn.addEventListener('click', () => {
+                    const sidebar = document.getElementById('sidebar');
+                    if (sidebar) sidebar.classList.toggle('-translate-x-full');
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                const btn = document.getElementById('armadaSelectBtn');
+                const menu = document.getElementById('armadaDropdownMenu');
+                if (btn && menu && !btn.contains(e.target) && !menu.contains(e.target)) {
+                    menu.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</head>
+<body class="bg-slate-50 text-slate-800 antialiased font-sans min-h-screen flex flex-col md:flex-row">
+
+    <!-- Container khusus area cetak PDF/Print -->
+    <div id="printArea" class="hidden"></div>
+
+    <!-- Mobile Header -->
+    <div class="md:hidden bg-slate-900 text-white p-4 flex justify-between items-center sticky top-0 z-50 border-b border-slate-800">
+        <div class="flex items-center space-x-3">
+            <div class="bg-sky-500 p-2 rounded-lg">
+                <i class="fa-solid font-bold fa-gas-pump text-white"></i>
+            </div>
+            <span class="font-bold text-lg tracking-wide">SIM-BBM</span>
+        </div>
+        <button id="mobileMenuBtn" class="text-slate-300 hover:text-white focus:outline-none p-2">
+            <i class="fa-solid fa-bars text-xl"></i>
+        </button>
+    </div>
+
+    <!-- Sidebar Navigation -->
+    <aside id="sidebar" class="bg-slate-900 text-slate-300 w-full md:w-64 space-y-6 px-4 py-6 absolute md:relative inset-y-0 left-0 transform -translate-x-full md:translate-x-0 transition duration-200 ease-in-out z-40 flex flex-col justify-between shrink-0 min-h-screen">
+        <div class="space-y-6">
+            <!-- Brand Logo -->
+            <div class="hidden md:flex items-center space-x-3 px-3">
+                <div class="bg-sky-500 p-2.5 rounded-xl shadow-lg shadow-sky-500/30">
+                    <i class="fa-solid fa-gas-pump text-white text-xl"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-white tracking-wide text-lg leading-tight">SIM-BBM</h1>
+                    <p class="text-xs text-slate-400">Armada & Operational</p>
+                </div>
+            </div>
+
+            <hr class="border-slate-800 hidden md:block">
+
+            <!-- Navigation Menu -->
+            <nav class="space-y-1.5" id="navContainer">
+                <button onclick="switchTab('dashboard')" id="nav-dashboard" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition duration-150 font-medium text-sm text-white bg-sky-600 shadow-lg shadow-sky-600/30">
+                    <i class="fa-solid fa-chart-pie w-5"></i>
+                    <span>Dashboard Analytics</span>
+                </button>
+                <button onclick="switchTab('input')" id="nav-input" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition duration-150 font-medium text-sm text-slate-400">
+                    <i class="fa-solid fa-pen-to-square w-5"></i>
+                    <span>Input Transaksi</span>
+                </button>
+                <button onclick="switchTab('insidentil')" id="nav-insidentil" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition duration-150 font-medium text-sm text-slate-400 text-left">
+                    <i class="fa-solid fa-file-signature w-5 shrink-0"></i>
+                    <span>Permintaan BBM Insidentil</span>
+                </button>
+                <button onclick="switchTab('matriks')" id="nav-matriks" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition duration-150 font-medium text-sm text-slate-400">
+                    <i class="fa-solid fa-table-cells w-5"></i>
+                    <span>Matriks Harian</span>
+                </button>
+                <button onclick="switchTab('rekap')" id="nav-rekap" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition duration-150 font-medium text-sm text-slate-400">
+                    <i class="fa-solid fa-calendar-week w-5"></i>
+                    <span>Rekap Mingguan</span>
+                </button>
+                <button onclick="switchTab('master')" id="nav-master" class="nav-item w-full flex items-center space-x-3 px-4 py-3 rounded-xl hover:bg-slate-800 hover:text-white transition duration-150 font-medium text-sm text-slate-400">
+                    <i class="fa-solid fa-truck-monster w-5"></i>
+                    <span>Master Data & BBM</span>
+                </button>
+            </nav>
+        </div>
+
+        <!-- Footer Note / Reset -->
+        <div class="pt-6 border-t border-slate-800 space-y-3">
+            <button onclick="resetDataToDefault()" class="w-full text-xs text-rose-400 hover:text-rose-300 flex items-center justify-center space-x-2 py-2 rounded-lg bg-rose-500/10 hover:bg-rose-500/20 transition">
+                <i class="fa-solid fa-rotate-left"></i>
+                <span>Reset Demo Data</span>
+            </button>
+            <div class="text-center text-xs text-slate-500">
+                &copy; 2026 Admin BBM System
+            </div>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 overflow-x-hidden overflow-y-auto p-4 md:p-8">
+
+        <!-- Notification Modal / Banner Container -->
+        <div id="toastNotification" class="hidden fixed top-5 right-5 z-50 bg-emerald-600 text-white px-5 py-3 rounded-xl shadow-2xl flex items-center space-x-3 animate-bounce">
+            <i class="fa-solid fa-circle-check text-xl"></i>
+            <span id="toastMessage">Data berhasil disimpan!</span>
+        </div>
+
+        <!-- TAB 1: DASHBOARD ANALYTICS -->
+        <section id="tab-dashboard" class="tab-content space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Dashboard Pengambilan BBM</h2>
+                    <p class="text-slate-500 text-sm">Ringkasan penggunaan bahan bakar armada & TPST</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-3 w-full md:w-auto">
+                    <div class="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <i class="fa-solid fa-filter text-slate-400 pl-2"></i>
+                        <select id="dashMonthFilter" onchange="renderDashboard()" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none pr-3 py-1 cursor-pointer">
+                            <option value="1">Januari 2026</option>
+                            <option value="2">Februari 2026</option>
+                            <option value="3">Maret 2026</option>
+                            <option value="4">April 2026</option>
+                            <option value="5">Mei 2026</option>
+                            <option value="6">Juni 2026</option>
+                            <option value="7">Juli 2026</option>
+                            <option value="8" selected>Agustus 2026</option>
+                            <option value="9">September 2026</option>
+                            <option value="10">Oktober 2026</option>
+                            <option value="11">November 2026</option>
+                            <option value="12">Desember 2026</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <!-- KPI Cards -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total BBM (Liter)</span>
+                        <div class="bg-sky-100 text-sky-600 p-2.5 rounded-xl">
+                            <i class="fa-solid fa-droplet text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 id="kpiTotalLiter" class="text-2xl font-bold text-slate-800 mb-3">0 L</h3>
+                    <div class="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-sky-500 mr-2"></span>Bio Solar (Rutin):</span>
+                            <span id="kpiLiterBioSolar" class="font-bold text-slate-800">0 L</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-rose-600 font-medium"><span class="w-2 h-2 rounded-full bg-rose-500 mr-2"></span>Bio Solar (Insidentil):</span>
+                            <span id="kpiLiterBioSolarIns" class="font-bold text-rose-700">0 L</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>Dex (Rutin):</span>
+                            <span id="kpiLiterDex" class="font-bold text-slate-800">0 L</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-amber-600 font-medium"><span class="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>Dex (Insidentil):</span>
+                            <span id="kpiLiterDexIns" class="font-bold text-amber-700">0 L</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-orange-500 mr-2"></span>Dex TPST:</span>
+                            <span id="kpiLiterDexTpst" class="font-bold text-slate-800">0 L</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>Pertamax:</span>
+                            <span id="kpiLiterPertamax" class="font-bold text-slate-800">0 L</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                    <div class="flex justify-between items-center mb-1">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Total BBM (Rupiah)</span>
+                        <div class="bg-emerald-100 text-emerald-600 p-2.5 rounded-xl">
+                            <i class="fa-solid fa-list-check text-lg"></i>
+                        </div>
+                    </div>
+                    <h3 id="kpiTotalBiayaCard" class="text-2xl font-bold text-slate-800 mb-3">Rp 0</h3>
+                    <div class="pt-2 border-t border-slate-100 space-y-1.5 text-xs">
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-sky-500 mr-2"></span>Bio Solar (Rutin):</span>
+                            <span id="kpiBiayaBioSolar" class="font-bold text-slate-800">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-rose-600 font-medium"><span class="w-2 h-2 rounded-full bg-rose-500 mr-2"></span>Bio Solar (Insidentil):</span>
+                            <span id="kpiBiayaBioSolarIns" class="font-bold text-rose-700">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-emerald-500 mr-2"></span>Dex (Rutin):</span>
+                            <span id="kpiBiayaDex" class="font-bold text-slate-800">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-amber-600 font-medium"><span class="w-2 h-2 rounded-full bg-amber-500 mr-2"></span>Dex (Insidentil):</span>
+                            <span id="kpiBiayaDexIns" class="font-bold text-amber-700">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-orange-500 mr-2"></span>Dex TPST:</span>
+                            <span id="kpiBiayaDexTpst" class="font-bold text-slate-800">Rp 0</span>
+                        </div>
+                        <div class="flex justify-between items-center">
+                            <span class="flex items-center text-slate-600 font-medium"><span class="w-2 h-2 rounded-full bg-indigo-500 mr-2"></span>Pertamax:</span>
+                            <span id="kpiBiayaPertamax" class="font-bold text-slate-800">Rp 0</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Armada</span>
+                        <div class="bg-indigo-100 text-indigo-600 p-2 rounded-xl">
+                            <i class="fa-solid fa-truck-moving text-base"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h3 id="kpiArmadaAktif" class="text-2xl font-bold text-slate-800">0 Unit</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-check-circle text-emerald-500 mr-1"></i>Armada dengan riwayat pengisian</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 hover:shadow-md transition">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Rata-Rata Harian / Armada</span>
+                        <div class="bg-amber-100 text-amber-600 p-2 rounded-xl">
+                            <i class="fa-solid fa-gauge-high text-base"></i>
+                        </div>
+                    </div>
+                    <div class="mt-4">
+                        <h3 id="kpiAvgHarian" class="text-2xl font-bold text-slate-800">0 L/hari</h3>
+                        <p class="text-xs text-slate-500 mt-1"><i class="fa-solid fa-circle-info text-amber-500 mr-1"></i>Rata-rata per kendaraan / hari</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                    <div class="flex justify-between items-center mb-4">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center">
+                            <i class="fa-solid fa-chart-line text-sky-500 mr-2"></i> Tren Pengambilan Harian (Liter) per Jenis BBM
+                        </h3>
+                    </div>
+                    <div class="relative h-64">
+                        <canvas id="dailyTrendChart"></canvas>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                    <h3 class="font-bold text-slate-800 text-lg mb-4 flex items-center">
+                        <i class="fa-solid fa-chart-pie text-indigo-500 mr-2"></i> Proporsi Jenis BBM
+                    </h3>
+                    <div class="relative h-64 flex items-center justify-center">
+                        <canvas id="bbmTypeChart"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Top Armada Table -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-5 border-b border-slate-100 flex justify-between items-center">
+                    <h3 class="font-bold text-slate-800 text-lg">Top 5 Konsumsi BBM Armada / TPST Bulan Ini</h3>
+                    <span class="text-xs text-slate-400">Diurutkan dari konsumsi tertinggi</span>
+                </div>
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-50 text-slate-500 text-xs font-semibold uppercase tracking-wider">
+                                <th class="p-4">No</th>
+                                <th class="p-4">Armada / Lokasi TPST</th>
+                                <th class="p-4">Driver / Operator</th>
+                                <th class="p-4 text-right">Total Liter</th>
+                                <th class="p-4 text-right">Total Nominal</th>
+                            </tr>
+                        </thead>
+                        <tbody id="topArmadaTable" class="divide-y divide-slate-100 text-sm">
+                            <!-- Populated via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 2: INPUT TRANSAKSI HARIAN -->
+        <section id="tab-input" class="tab-content hidden space-y-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Form Input Transaksi BBM Harian</h2>
+                    <p class="text-slate-500 text-sm">Catat transaksi pengambilan BBM armada & TPST</p>
+                </div>
+                <div class="bg-slate-100 p-1 rounded-xl flex items-center space-x-1 border border-slate-200 self-stretch sm:self-auto">
+                    <button id="btnModeSingle" onclick="switchInputMode('single')" class="flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition bg-white text-sky-600 shadow-sm">
+                        <i class="fa-solid fa-user mr-1.5"></i> Single Input
+                    </button>
+                    <button id="btnModeMulti" onclick="switchInputMode('multi')" class="flex-1 sm:flex-none px-4 py-2 text-xs font-bold rounded-lg transition text-slate-600 hover:text-slate-900">
+                        <i class="fa-solid fa-layer-group mr-1.5"></i> Multi Input (Batch)
+                    </button>
+                </div>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2 space-y-6">
+                    <!-- SINGLE INPUT FORM -->
+                    <div id="singleInputContainer" class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                        <form id="transactionForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Tanggal Transaksi</label>
+                                    <input type="date" id="inputTanggal" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 text-sm">
+                                </div>
+                                <div class="relative">
+                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Pilih Armada / TPST</label>
+                                    <button type="button" id="armadaSelectBtn" onclick="toggleArmadaDropdown()" class="w-full px-4 py-2.5 bg-white rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 text-sm font-medium text-slate-800 flex justify-between items-center text-left shadow-sm">
+                                        <span id="selectedArmadaLabel">Pilih Armada...</span>
+                                        <i class="fa-solid fa-chevron-down text-slate-400 text-xs"></i>
+                                    </button>
+                                    <div id="armadaDropdownMenu" class="hidden absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-50 p-2 space-y-2">
+                                        <div class="relative">
+                                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-slate-400 text-xs"></i>
+                                            <input type="text" id="armadaSearchInput" oninput="filterArmadaOptions()" placeholder="Cari Plat Nomor / Driver..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-lg text-xs focus:outline-none focus:border-sky-500">
+                                        </div>
+                                        <div id="armadaOptionsList" class="max-h-48 overflow-y-auto custom-scrollbar space-y-1"></div>
+                                    </div>
+                                    <input type="hidden" id="inputArmada" required>
+                                </div>
+                            </div>
+
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Driver / Penanggung Jawab</label>
+                                    <input type="text" id="inputDriver" readonly placeholder="Otomatis terisi" class="w-full px-4 py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 text-sm font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Jenis BBM</label>
+                                    <select id="inputJenisBBM" required onchange="autoFillPrice()" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 text-sm font-medium"></select>
+                                </div>
+                            </div>
+
+                            <div>
+                                <label class="block text-xs font-semibold text-slate-600 uppercase mb-1.5">Keterangan Pengisian</label>
+                                <select id="inputKeterangan" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 focus:ring-2 focus:ring-sky-500 text-sm">
+                                    <option value="Rutin">Rutin (Operasional Harian)</option>
+                                    <option value="Alat Berat">Alat Berat / TPST</option>
+                                    <option value="Insidentil">Insidentil / Darurat</option>
+                                    <option value="Barcode Terblokir">Barcode Terblokir (Nota KM)</option>
+                                </select>
+                            </div>
+
+                            <div class="p-4 bg-sky-50/60 rounded-xl border border-sky-100 space-y-3">
+                                <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 items-center">
+                                    <div class="sm:col-span-1">
+                                        <label class="block text-xs font-bold text-sky-900 uppercase mb-1">Jumlah Liter (L)</label>
+                                        <input type="number" step="0.01" min="0" id="inputLiter" required oninput="calculateTotal()" placeholder="0.00" class="w-full px-4 py-2.5 rounded-xl border border-sky-300 focus:ring-2 focus:ring-sky-500 text-lg font-bold text-sky-700 bg-white">
+                                    </div>
+                                    <div class="sm:col-span-2">
+                                        <label class="block text-[11px] font-semibold text-sky-800 uppercase mb-1">Tombol Cepat Liter</label>
+                                        <div class="flex flex-wrap gap-1.5">
+                                            <button type="button" onclick="setPresetLiter(10)" class="px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-600 hover:text-white transition">+10L</button>
+                                            <button type="button" onclick="setPresetLiter(20)" class="px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-600 hover:text-white transition">+20L</button>
+                                            <button type="button" onclick="setPresetLiter(30)" class="px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-600 hover:text-white transition">+30L</button>
+                                            <button type="button" onclick="setPresetLiter(40)" class="px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-600 hover:text-white transition">+40L</button>
+                                            <button type="button" onclick="setPresetLiter(50)" class="px-2.5 py-1.5 bg-white border border-sky-200 rounded-lg text-xs font-bold text-sky-700 hover:bg-sky-600 hover:text-white transition">+50L</button>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-center pt-2 border-t border-sky-200/60 text-xs">
+                                    <span class="text-slate-500">Harga per Liter: <strong id="lblHargaPerLiter" class="text-slate-700">Rp 0</strong></span>
+                                    <span class="text-slate-700 font-medium">Total Nominal: <strong id="lblTotalRupiah" class="text-emerald-600 text-sm font-bold">Rp 0</strong></span>
+                                </div>
+                            </div>
+
+                            <input type="hidden" id="inputHarga" value="0">
+
+                            <div class="pt-2 flex items-center space-x-3">
+                                <button type="submit" class="flex-1 bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-6 rounded-xl shadow-lg shadow-sky-600/30 transition text-sm flex items-center justify-center space-x-2">
+                                    <i class="fa-solid fa-floppy-disk"></i>
+                                    <span>Simpan Transaksi</span>
+                                </button>
+                                <button type="button" onclick="resetForm()" class="px-5 py-3 rounded-xl border border-slate-300 text-slate-600 hover:bg-slate-100 transition text-sm font-medium">Reset</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- MULTI INPUT FORM -->
+                    <div id="multiInputContainer" class="hidden bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                        <div class="p-4 bg-sky-50 rounded-xl border border-sky-100 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3">
+                            <div>
+                                <label class="block text-xs font-bold text-sky-900 uppercase mb-1">Tanggal Pengisian Sama Untuk Semua</label>
+                                <input type="date" id="multiInputTanggal" class="px-3 py-1.5 rounded-lg border border-sky-300 focus:ring-2 focus:ring-sky-500 text-sm font-semibold text-sky-800">
+                            </div>
+                            <div class="text-right text-xs text-sky-700">
+                                <i class="fa-solid fa-info-circle mr-1"></i>Masukkan beberapa armada sekaligus dalam 1 hari
+                            </div>
+                        </div>
+
+                        <div class="overflow-x-auto custom-scrollbar border border-slate-200 rounded-xl">
+                            <table class="w-full text-sm text-left">
+                                <thead class="bg-slate-100 text-slate-600 text-xs font-bold uppercase border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-3 w-10">No</th>
+                                        <th class="p-3 min-w-[180px]">Armada / TPST</th>
+                                        <th class="p-3 min-w-[150px]">Jenis BBM</th>
+                                        <th class="p-3 min-w-[110px]">Liter (L)</th>
+                                        <th class="p-3 min-w-[130px]">Keterangan</th>
+                                        <th class="p-3 w-12 text-center">Aksi</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="multiInputRows" class="divide-y divide-slate-100"></tbody>
+                            </table>
+                        </div>
+
+                        <div class="flex flex-col sm:flex-row justify-between items-center gap-3 pt-2">
+                            <button type="button" onclick="addMultiInputRow()" class="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-dashed border-sky-500 text-sky-600 hover:bg-sky-50 font-bold text-xs flex items-center justify-center space-x-2 transition">
+                                <i class="fa-solid fa-plus"></i>
+                                <span>+ Tambah Baris Armada</span>
+                            </button>
+                            <button type="button" onclick="saveMultiTransactions()" class="w-full sm:w-auto bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 px-8 rounded-xl shadow-lg shadow-emerald-600/30 transition flex items-center justify-center space-x-2 text-sm">
+                                <i class="fa-solid fa-cloud-arrow-up"></i>
+                                <span>Simpan Semua Transaksi</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base mb-3 flex items-center">
+                            <i class="fa-solid fa-clock-rotate-left text-sky-500 mr-2"></i> Transaksi Terakhir Input
+                        </h3>
+                        <div id="recentTransactionsList" class="space-y-3 max-h-96 overflow-y-auto custom-scrollbar pr-1"></div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB BARU: FORM PERMINTAAN & CETAK BBM INSIDENTIL -->
+        <section id="tab-insidentil" class="tab-content hidden space-y-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                <h2 class="text-2xl font-bold text-slate-800">Form Permintaan BBM Insidentil</h2>
+                <p class="text-slate-500 text-sm">Formulir untuk pengisian darurat / tambahan di luar jadwal rutin. Dicetak 2x.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <!-- Form Input Insidentil -->
+                <div class="lg:col-span-1 bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80">
+                    <form onsubmit="handleInsidentilSubmit(event)" class="space-y-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Nomor Surat / Form</label>
+                            <input type="text" id="insNoSurat" required readonly class="w-full px-3 py-2 bg-slate-100 rounded-xl border border-slate-300 font-mono text-xs font-bold text-slate-700">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tanggal</label>
+                            <input type="date" id="insTanggal" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Pilih Armada / TPST</label>
+                            <select id="insArmadaSelect" required onchange="autofillInsidentilArmada()" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium">
+                                <!-- Populated JS -->
+                            </select>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Driver / Pengambil</label>
+                            <input type="text" id="insDriver" required placeholder="Nama Pengambil" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium">
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Jenis BBM</label>
+                                <select id="insBbmSelect" required class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium"></select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Volume (Liter)</label>
+                                <input type="number" step="0.01" min="0" id="insLiter" required placeholder="0 L" class="w-full px-3 py-2 rounded-xl border border-sky-300 text-xs font-bold text-sky-700">
+                            </div>
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Tujuan SPBU / POM</label>
+                            <input type="text" id="insSpbu" required value="SPBU Pertamina Terdekat" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs font-medium">
+                        </div>
+
+                        <div>
+                            <label class="block text-xs font-bold text-slate-600 uppercase mb-1">Keperluan Pengambilan</label>
+                            <textarea id="insKeperluan" rows="2" placeholder="Contoh: Pengangkutan Sampah Tambahan / Lembur" class="w-full px-3 py-2 rounded-xl border border-slate-300 text-xs"></textarea>
+                        </div>
+
+                        <div class="grid grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Nama Pemohon</label>
+                                <input type="text" id="insPemohon" placeholder="Driver / Kasie" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs">
+                            </div>
+                            <div>
+                                <label class="block text-[10px] font-bold text-slate-500 uppercase mb-1">Pejabat Menyetujui</label>
+                                <input type="text" id="insPejabat" placeholder="Kabid / Ka. TPST" class="w-full px-2.5 py-1.5 rounded-lg border border-slate-300 text-xs">
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-sky-600/30 transition flex items-center justify-center space-x-2 text-xs">
+                            <i class="fa-solid fa-print"></i>
+                            <span>Simpan & Cetak 2 Rangkap</span>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- History Table Insidentil -->
+                <div class="lg:col-span-2 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                    <h3 class="font-bold text-slate-800 text-base mb-4 flex items-center">
+                        <i class="fa-solid fa-receipt text-sky-500 mr-2"></i> Riwayat Pengajuan Insidentil
+                    </h3>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-[11px] font-bold uppercase border-b border-slate-200">
+                                    <th class="p-3 text-center">No</th>
+                                    <th class="p-3">No Surat</th>
+                                    <th class="p-3">Tanggal</th>
+                                    <th class="p-3">Armada / Driver</th>
+                                    <th class="p-3">Pengambilan</th>
+                                    <th class="p-3">Keperluan</th>
+                                    <th class="p-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="insidentilTableBody" class="divide-y divide-slate-100">
+                                <!-- Populated JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 4: MATRIKS HARIAN (1-31) -->
+        <section id="tab-matriks" class="tab-content hidden space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Matriks Realisasi BBM Harian</h2>
+                    <p class="text-slate-500 text-sm">Rincian pengambilan harian per armada dikelompokkan berdasarkan kategori BBM & Sifat Pengisian</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <button onclick="printMatriksReport()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-pdf text-sm"></i>
+                        <span>Cetak PDF</span>
+                    </button>
+                    <button onclick="exportMatriksExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-excel text-sm"></i>
+                        <span>Export Excel</span>
+                    </button>
+                    <div class="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <i class="fa-solid fa-calendar text-slate-400 pl-2"></i>
+                        <select id="matriksMonthFilter" onchange="renderMatriksTable()" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none pr-3 py-1 cursor-pointer">
+                            <option value="1">Januari 2026</option>
+                            <option value="2">Februari 2026</option>
+                            <option value="3">Maret 2026</option>
+                            <option value="4">April 2026</option>
+                            <option value="5">Mei 2026</option>
+                            <option value="6">Juni 2026</option>
+                            <option value="7">Juli 2026</option>
+                            <option value="8" selected>Agustus 2026</option>
+                            <option value="9">September 2026</option>
+                            <option value="10">Oktober 2026</option>
+                            <option value="11">November 2026</option>
+                            <option value="12">Desember 2026</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex flex-wrap justify-between items-center text-xs gap-2">
+                    <span class="text-slate-500"><i class="fa-solid fa-arrows-left-right mr-1"></i> Geser tabel ke kanan untuk melihat tanggal lengkap (1-31)</span>
+                    <div class="flex items-center space-x-3 font-semibold">
+                        <span class="text-sky-600"><i class="fa-solid fa-square text-sky-500 mr-1"></i> Rutin</span>
+                        <span class="text-rose-600"><i class="fa-solid fa-square text-rose-500 mr-1"></i> Insidentil</span>
+                    </div>
+                </div>
+                <div class="overflow-x-auto custom-scrollbar">
+                    <table class="w-full text-xs text-center border-collapse">
+                        <thead>
+                            <tr id="matriksHeaderRow" class="bg-slate-800 text-white font-medium uppercase tracking-wider">
+                                <th class="p-3 sticky left-0 z-20 bg-slate-800 min-w-[150px] text-left border-r border-slate-700">Armada / TPST</th>
+                                <th class="p-3 bg-slate-800 min-w-[110px] text-left border-r border-slate-700">Driver</th>
+                                <th class="p-3 bg-slate-800 min-w-[140px] text-left border-r border-slate-700">Kategori BBM</th>
+                            </tr>
+                        </thead>
+                        <tbody id="matriksTableBody" class="divide-y divide-slate-200"></tbody>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 5: REKAP MINGGUAN & BULANAN -->
+        <section id="tab-rekap" class="tab-content hidden space-y-6">
+            <div class="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                <div>
+                    <h2 class="text-2xl font-bold text-slate-800">Rekapitulasi Mingguan & Bulanan</h2>
+                    <p class="text-slate-500 text-sm">Pemeriksaan rinci berdasarkan jenis pengisian BBM per armada</p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 w-full md:w-auto">
+                    <button onclick="printRekapReport()" class="px-3.5 py-2 bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs rounded-xl shadow-md shadow-rose-600/20 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-pdf text-sm"></i>
+                        <span>Cetak PDF</span>
+                    </button>
+                    <button onclick="exportRekapExcel()" class="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center space-x-1.5">
+                        <i class="fa-solid fa-file-excel text-sm"></i>
+                        <span>Export Excel</span>
+                    </button>
+                    <div class="flex items-center space-x-2 bg-slate-100 p-1.5 rounded-xl border border-slate-200">
+                        <i class="fa-solid fa-calendar-days text-slate-400 pl-2"></i>
+                        <select id="rekapMonthFilter" onchange="renderRekapTable()" class="bg-transparent text-sm font-semibold text-slate-700 focus:outline-none pr-3 py-1 cursor-pointer">
+                            <option value="1">Januari 2026</option>
+                            <option value="2">Februari 2026</option>
+                            <option value="3">Maret 2026</option>
+                            <option value="4">April 2026</option>
+                            <option value="5">Mei 2026</option>
+                            <option value="6">Juni 2026</option>
+                            <option value="7">Juli 2026</option>
+                            <option value="8" selected>Agustus 2026</option>
+                            <option value="9">September 2026</option>
+                            <option value="10">Oktober 2026</option>
+                            <option value="11">November 2026</option>
+                            <option value="12">Desember 2026</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-200/80 overflow-hidden">
+                <div class="overflow-x-auto">
+                    <table class="w-full text-sm text-left border-collapse">
+                        <thead>
+                            <tr class="bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider border-b border-slate-200">
+                                <th class="p-4">Armada / TPST</th>
+                                <th class="p-4">Driver</th>
+                                <th class="p-4">Kategori BBM</th>
+                                <th class="p-4 text-center">Minggu 1<br><span class="text-[10px] text-slate-400 font-normal">Tgl 1-7</span></th>
+                                <th class="p-4 text-center">Minggu 2<br><span class="text-[10px] text-slate-400 font-normal">Tgl 8-14</span></th>
+                                <th class="p-4 text-center">Minggu 3<br><span class="text-[10px] text-slate-400 font-normal">Tgl 15-21</span></th>
+                                <th class="p-4 text-center">Minggu 4<br><span class="text-[10px] text-slate-400 font-normal">Tgl 22-28</span></th>
+                                <th class="p-4 text-center">Minggu 5<br><span class="text-[10px] text-slate-400 font-normal">Tgl 29-31</span></th>
+                                <th class="p-4 text-right bg-sky-50 font-bold text-sky-800">Total Liter</th>
+                                <th class="p-4 text-right bg-emerald-50 font-bold text-emerald-800">Total (Rp)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="rekapTableBody" class="divide-y divide-slate-100"></tbody>
+                        <tfoot>
+                            <tr id="rekapTableFoot" class="bg-slate-900 text-white font-bold text-sm"></tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+        </section>
+
+        <!-- TAB 6: MASTER ARMADA & HARGA BBM -->
+        <section id="tab-master" class="tab-content hidden space-y-6">
+            <div class="bg-white p-5 rounded-2xl shadow-sm border border-slate-200/80">
+                <h2 class="text-2xl font-bold text-slate-800">Master Data & Pengaturan Harga</h2>
+                <p class="text-slate-500 text-sm">Kelola daftar armada, lokasi TPST, master tanda tangan laporan, serta penyesuaian harga BBM per liter</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <!-- Master Harga BBM -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                    <h3 class="font-bold text-slate-800 text-base flex items-center">
+                        <i class="fa-solid fa-tags text-sky-500 mr-2"></i> Tarif Harga BBM per Liter
+                    </h3>
+                    <div id="bbmPriceList" class="space-y-3"></div>
+                </div>
+
+                <!-- Master Armada -->
+                <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800 text-base flex items-center">
+                            <i class="fa-solid fa-truck text-indigo-500 mr-2"></i> Master Armada & Lokasi
+                        </h3>
+                        <button onclick="addNewArmadaPrompt()" class="px-3 py-1.5 bg-sky-600 hover:bg-sky-700 text-white rounded-lg text-xs font-bold transition">
+                            <i class="fa-solid fa-plus mr-1"></i> Tambah Armada
+                        </button>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-100 text-slate-600 text-xs font-bold uppercase border-b border-slate-200">
+                                    <th class="p-3">Armada / Lokasi</th>
+                                    <th class="p-3">Driver</th>
+                                    <th class="p-3">Default BBM</th>
+                                    <th class="p-3 text-center">Aksi</th>
+                                </tr>
+                            </thead>
+                            <tbody id="masterArmadaBody" class="divide-y divide-slate-100"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Master Tanda Tangan Laporan -->
+            <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200/80 space-y-4">
+                <div class="flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base flex items-center">
+                            <i class="fa-solid fa-signature text-emerald-500 mr-2"></i> Master Tanda Tangan Laporan / Output Cetak
+                        </h3>
+                        <p class="text-xs text-slate-500 mt-0.5">Pengaturan pejabat penandatangan yang akan dicetak pada laporan resmi</p>
+                    </div>
+                    <button onclick="addNewSignature()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold transition">
+                        <i class="fa-solid fa-plus mr-1"></i> Tambah Penandatangan
+                    </button>
+                </div>
+                <div id="masterSignatureContainer" class="grid grid-cols-1 md:grid-cols-3 gap-4"></div>
+            </div>
+        </section>
+
+    </main>
+</body>
+</html>
